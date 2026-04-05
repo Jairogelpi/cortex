@@ -73,7 +73,7 @@ class LambdaLayer:
 
     SIM_CONFIRM    = 0.65
     SIM_CONTRADICT = 0.40
-    API_TIMEOUT = 30
+    API_TIMEOUT         = 30
     FRED_CONNECT_TIMEOUT = 5
     FRED_READ_TIMEOUT    = 10
 
