@@ -1,14 +1,13 @@
-# Cortex V2 — Heartbeat diario
+# Cortex V2 — Heartbeat diario E2
 # Se ejecuta cada dia a las 09:00 UTC (11:00 Madrid)
-# Publica el diario de Omicron en el repositorio
-# Referencia: paper Seccion 5 — "publicados en GitHub cada dia"
+# Pre-registro OSF: https://osf.io/wdkcx
 
 name: cortex-heartbeat
 
 on:
   schedule:
-    - cron: '0 9 * * 1-5'   # Lunes a viernes 09:00 UTC
-  workflow_dispatch:          # Permite ejecutar manualmente desde GitHub
+    - cron: '0 9 * * 1-5'
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -24,8 +23,15 @@ jobs:
       - name: Checkout repositorio
         uses: actions/checkout@v5
         with:
-          persist-credentials: true
-          token: ${{ secrets.CORTEX_PUSH_TOKEN || github.token }}
+          persist-credentials: false
+          token: ${{ secrets.CORTEX_PUSH_TOKEN }}
+
+      - name: Validar token de push
+        run: |
+          if [ -z "${{ secrets.CORTEX_PUSH_TOKEN }}" ]; then
+            echo "Falta CORTEX_PUSH_TOKEN"
+            exit 1
+          fi
 
       - name: Configurar Python 3.11
         uses: actions/setup-python@v6
@@ -35,6 +41,40 @@ jobs:
 
       - name: Instalar dependencias
         run: pip install -r requirements.txt
+
+      - name: Verificar secrets configurados
+        run: |
+          if [ -z "$OPENROUTER_API_KEY" ]; then
+            echo "ERROR: OPENROUTER_API_KEY no configurado en secrets"
+            exit 1
+          fi
+          if [ -z "$ALPACA_API_KEY" ]; then
+            echo "ERROR: ALPACA_API_KEY no configurado en secrets"
+            exit 1
+          fi
+          echo "Secrets: OK"
+          echo "OpenRouter key: ${OPENROUTER_API_KEY:0:8}..."
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          ALPACA_API_KEY: ${{ secrets.ALPACA_API_KEY }}
+
+      - name: Verificar conectividad OpenRouter
+        run: |
+          echo "Probando conexion a OpenRouter..."
+          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
+            -H "Authorization: Bearer $OPENROUTER_API_KEY" \
+            -H "Content-Type: application/json" \
+            "https://openrouter.ai/api/v1/models" \
+            --max-time 15)
+          echo "HTTP response: $HTTP_CODE"
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "ADVERTENCIA: OpenRouter respondio $HTTP_CODE"
+            echo "El pipeline usara modo fallback deterministico"
+          else
+            echo "OpenRouter: OK"
+          fi
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
 
       - name: Crear directorios necesarios
         run: |
@@ -55,23 +95,23 @@ jobs:
           MODEL_KAPPA: anthropic/claude-haiku-4-5
           MODEL_XI: anthropic/claude-haiku-4-5
           MODEL_SIGMA: anthropic/claude-sonnet-4-6
-        run: |
-          python -m cortex.pipeline
-          echo "Pipeline ejecutado correctamente"
+        run: python -m cortex.pipeline
 
       - name: Publicar diario de Omicron en el repositorio
+        env:
+          CORTEX_PUSH_TOKEN: ${{ secrets.CORTEX_PUSH_TOKEN }}
         run: |
           git config user.name "cortex-bot"
           git config user.email "cortex-bot@users.noreply.github.com"
-
-          # Solo hacer commit si hay cambios en logs/
+          git remote set-url origin "https://x-access-token:${CORTEX_PUSH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+      
           if git diff --quiet logs/ 2>/dev/null || [ ! -d "logs" ]; then
             echo "Sin cambios en logs — nada que publicar"
           else
             git add logs/
             DATE=$(date +%Y-%m-%d)
             git commit -m "obs: diario Omicron $DATE
-
+      
           $(tail -5 logs/cortex_$(date +%Y%m%d).jsonl 2>/dev/null || echo 'sin datos')"
             git push origin HEAD:${GITHUB_REF_NAME}
             echo "Diario publicado en GitHub"
