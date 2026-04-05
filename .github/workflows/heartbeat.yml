@@ -1,6 +1,6 @@
 # Cortex V2 — Heartbeat diario E2
-# Se ejecuta cada dia a las 09:00 UTC (11:00 Madrid)
 # Pre-registro OSF: https://osf.io/wdkcx
+# Cron: 09:00 UTC lunes-viernes
 
 name: cortex-heartbeat
 
@@ -9,32 +9,22 @@ on:
     - cron: '0 9 * * 1-5'
   workflow_dispatch:
 
+# FIX 403: GITHUB_TOKEN necesita permiso de escritura explícito
 permissions:
   contents: write
 
 jobs:
   heartbeat:
     runs-on: ubuntu-latest
-    timeout-minutes: 15       # Timeout de seguridad
-    permissions:
-      contents: write          # Necesario para git push
+    timeout-minutes: 20
 
     steps:
       - name: Checkout repositorio
-        uses: actions/checkout@v5
-        with:
-          persist-credentials: false
-          token: ${{ secrets.CORTEX_PUSH_TOKEN }}
-
-      - name: Validar token de push
-        run: |
-          if [ -z "${{ secrets.CORTEX_PUSH_TOKEN }}" ]; then
-            echo "Falta CORTEX_PUSH_TOKEN"
-            exit 1
-          fi
+        uses: actions/checkout@v4
+        # No usar persist-credentials: false — necesitamos el token por defecto
 
       - name: Configurar Python 3.11
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v5
         with:
           python-version: '3.11'
           cache: 'pip'
@@ -42,77 +32,52 @@ jobs:
       - name: Instalar dependencias
         run: pip install -r requirements.txt
 
-      - name: Verificar secrets configurados
+      - name: Verificar secrets
         run: |
-          if [ -z "$OPENROUTER_API_KEY" ]; then
-            echo "ERROR: OPENROUTER_API_KEY no configurado en secrets"
-            exit 1
-          fi
-          if [ -z "$ALPACA_API_KEY" ]; then
-            echo "ERROR: ALPACA_API_KEY no configurado en secrets"
-            exit 1
-          fi
+          echo "Verificando secrets..."
+          [ -z "$OPENROUTER_API_KEY" ] && echo "FALTA OPENROUTER_API_KEY" && exit 1
+          [ -z "$ALPACA_API_KEY" ]     && echo "FALTA ALPACA_API_KEY" && exit 1
           echo "Secrets: OK"
-          echo "OpenRouter key: ${OPENROUTER_API_KEY:0:8}..."
+          echo "OpenRouter: ${OPENROUTER_API_KEY:0:8}..."
         env:
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
-          ALPACA_API_KEY: ${{ secrets.ALPACA_API_KEY }}
+          ALPACA_API_KEY:     ${{ secrets.ALPACA_API_KEY }}
 
-      - name: Verificar conectividad OpenRouter
-        run: |
-          echo "Probando conexion a OpenRouter..."
-          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
-            -H "Authorization: Bearer $OPENROUTER_API_KEY" \
-            -H "Content-Type: application/json" \
-            "https://openrouter.ai/api/v1/models" \
-            --max-time 15)
-          echo "HTTP response: $HTTP_CODE"
-          if [ "$HTTP_CODE" != "200" ]; then
-            echo "ADVERTENCIA: OpenRouter respondio $HTTP_CODE"
-            echo "El pipeline usara modo fallback deterministico"
-          else
-            echo "OpenRouter: OK"
-          fi
-        env:
-          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
-
-      - name: Crear directorios necesarios
-        run: |
-          mkdir -p logs
-          mkdir -p data/memory
-          mkdir -p data/checkpoints
+      - name: Crear directorios
+        run: mkdir -p logs data/memory data/checkpoints
 
       - name: Ejecutar pipeline Cortex V2
         env:
-          ALPACA_API_KEY: ${{ secrets.ALPACA_API_KEY }}
-          ALPACA_SECRET_KEY: ${{ secrets.ALPACA_SECRET_KEY }}
-          ALPACA_BASE_URL: https://paper-api.alpaca.markets/v2
-          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          ALPACA_API_KEY:      ${{ secrets.ALPACA_API_KEY }}
+          ALPACA_SECRET_KEY:   ${{ secrets.ALPACA_SECRET_KEY }}
+          ALPACA_BASE_URL:     https://paper-api.alpaca.markets/v2
+          OPENROUTER_API_KEY:  ${{ secrets.OPENROUTER_API_KEY }}
           OPENROUTER_BASE_URL: https://openrouter.ai/api/v1
-          FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
-          MODEL_PHI: anthropic/claude-sonnet-4-6
-          MODEL_OMEGA: anthropic/claude-opus-4-6
-          MODEL_KAPPA: anthropic/claude-haiku-4-5
-          MODEL_XI: anthropic/claude-haiku-4-5
-          MODEL_SIGMA: anthropic/claude-sonnet-4-6
+          MODEL_PHI:    anthropic/claude-sonnet-4-6
+          MODEL_OMEGA:  anthropic/claude-opus-4-6
+          MODEL_KAPPA:  anthropic/claude-haiku-4-5
+          MODEL_XI:     anthropic/claude-haiku-4-5
+          MODEL_SIGMA:  anthropic/claude-sonnet-4-6
         run: python -m cortex.pipeline
 
-      - name: Publicar diario de Omicron en el repositorio
-        env:
-          CORTEX_PUSH_TOKEN: ${{ secrets.CORTEX_PUSH_TOKEN }}
+      - name: Publicar logs en GitHub
         run: |
-          git config user.name "cortex-bot"
+          git config user.name  "cortex-bot"
           git config user.email "cortex-bot@users.noreply.github.com"
-          git remote set-url origin "https://x-access-token:${CORTEX_PUSH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
-      
-          if git diff --quiet logs/ 2>/dev/null || [ ! -d "logs" ]; then
-            echo "Sin cambios en logs — nada que publicar"
+          git add logs/ || true
+          if git diff --staged --quiet; then
+            echo "Sin cambios — nada que publicar"
           else
-            git add logs/
             DATE=$(date +%Y-%m-%d)
-            git commit -m "obs: diario Omicron $DATE
-      
-          $(tail -5 logs/cortex_$(date +%Y%m%d).jsonl 2>/dev/null || echo 'sin datos')"
-            git push origin HEAD:${GITHUB_REF_NAME}
-            echo "Diario publicado en GitHub"
+            DELTA=$(python3 -c "
+import json, glob, sys
+files = sorted(glob.glob('logs/cortex_*.jsonl'))
+if not files: sys.exit(0)
+lines = [l for l in open(files[-1]) if l.strip()]
+if lines:
+    d = json.loads(lines[-1])
+    print(f\"delta={d.get('delta','?')} regime={d.get('regime','?')} signal={d.get('signal','?')}\")" 2>/dev/null || echo "")
+            git commit -m "obs: heartbeat $DATE | $DELTA"
+            git push
+            echo "Publicado: $DATE"
           fi
