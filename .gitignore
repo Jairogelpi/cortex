@@ -1,5 +1,5 @@
-# Archivos a ignorar en Git — nunca subir al repositorio
-# ─────────────────────────────────────────────────────
+# Archivos a ignorar en Git
+# ─────────────────────────
 
 # CRITICO: claves API — nunca en GitHub
 .env
@@ -12,12 +12,12 @@ __pycache__/
 *.pyd
 .Python
 
-# Datos de sesion (privados, no necesarios en repo)
+# Datos de sesion (privados)
 data/memory/
 data/checkpoints/
 
-# Logs (se generan automaticamente)
-logs/
+# Los logs de GitHub Actions SI se suben (son el diario de Omicron)
+# GitHub Actions los genera en logs/ y los commitea automaticamente
 
 # IDEs
 .vscode/
@@ -36,3 +36,12 @@ Thumbs.db
 dist/
 build/
 .pytest_cache/
+
+# Archivos de setup locales (no necesarios en repo)
+setup.bat
+setup_github.bat
+setup_actions.bat
+test_conexion.bat
+
+# Archivo accidental
+0.70
