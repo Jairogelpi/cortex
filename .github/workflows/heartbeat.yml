@@ -10,17 +10,25 @@ on:
     - cron: '0 9 * * 1-5'   # Lunes a viernes 09:00 UTC
   workflow_dispatch:          # Permite ejecutar manualmente desde GitHub
 
+permissions:
+  contents: write
+
 jobs:
   heartbeat:
     runs-on: ubuntu-latest
     timeout-minutes: 15       # Timeout de seguridad
+    permissions:
+      contents: write          # Necesario para git push
 
     steps:
       - name: Checkout repositorio
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
+        with:
+          persist-credentials: true
+          token: ${{ secrets.CORTEX_PUSH_TOKEN || github.token }}
 
       - name: Configurar Python 3.11
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: '3.11'
           cache: 'pip'
@@ -64,6 +72,6 @@ jobs:
             git commit -m "obs: diario Omicron $DATE
 
           $(tail -5 logs/cortex_$(date +%Y%m%d).jsonl 2>/dev/null || echo 'sin datos')"
-            git push
+            git push origin HEAD:${GITHUB_REF_NAME}
             echo "Diario publicado en GitHub"
           fi
