@@ -1,0 +1,41 @@
+{
+  "experiment": "E3",
+  "osf": "https://osf.io/wdkcx",
+  "generated_from": "experiments/e1_results.csv",
+  "generated_at": "2026-04-05T22:09:50.991381",
+  "random_seed": 42,
+  "total_pairs": 50,
+  "stratification": {
+    "frontier_ambiguous": 10,
+    "gas_clear": 8,
+    "lorenz_clear": 8,
+    "regime_transition": 6,
+    "potential_overdamped": 5,
+    "fill": 4,
+    "lorenz_weak": 4,
+    "rare_compressed_gas": 3,
+    "rare_phase_transition": 2
+  },
+  "difficulty": {
+    "hard": 21,
+    "easy": 16,
+    "medium": 13
+  },
+  "expected_isomorph": {
+    "EXPERT_JUDGMENT": 21,
+    "gas_expansion": 12,
+    "lorenz_attractor": 12,
+    "compressed_gas": 3,
+    "phase_transition": 2
+  },
+  "date_range": "2025-10-02 to 2026-03-30",
+  "h2_baseline_f1": 0.278,
+  "h2_target_f1": 0.478,
+  "known_limitations": [
+    "R4_CONTRACTION no aparecio en E1 — sin pares de crisis profunda (VIX>35)",
+    "overdamped_system nunca fue isomorfo ganador — pares son EXPERT_JUDGMENT",
+    "Phi deterministico produce Z comprimidos — margenes menores que en produccion"
+  ],
+  "inter_rater_agreement_required": "Cohen kappa >= 0.75",
+  "protocol": "Evaluadores ciegos: no ven columna isomorph del sistema. Asignan uno de los 5 isomorfos o 'ninguno'. Escala de confianza 1-4 por par."
+}

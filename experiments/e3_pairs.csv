@@ -1,0 +1,51 @@
+pair_id,date,spy_price,vix,momentum_21d_pct,vol_realized_pct,drawdown_90d_pct,regime,delta,isomorph,isomorph_sim,margin,stratum,expected_isomorph,difficulty,rationale
+1,2025-10-02,665.43,16.63,4.25,6.28,0.0,R1_EXPANSION,0.7655,gas_expansion,0.9194,0.3475,gas_clear,gas_expansion,easy,"Bull run inequivoco: R1_EXPANSION, momentum>3%, VIX bajo"
+2,2025-10-03,665.42,16.65,3.38,5.87,-0.0,R1_EXPANSION,0.7655,gas_expansion,0.9085,0.3495,gas_clear,gas_expansion,easy,"Bull run inequivoco: R1_EXPANSION, momentum>3%, VIX bajo"
+3,2025-10-06,667.81,16.37,4.05,5.67,0.0,R1_EXPANSION,0.7655,gas_expansion,0.9148,0.3548,fill,gas_expansion,medium,Muestra representativa adicional
+4,2025-10-09,667.36,16.43,3.19,6.37,-0.29,R1_EXPANSION,0.7616,gas_expansion,0.912,0.3453,gas_clear,gas_expansion,easy,"Bull run inequivoco: R1_EXPANSION, momentum>3%, VIX bajo"
+5,2025-10-13,659.29,19.03,1.14,12.6,-1.5,R1_EXPANSION,0.7655,gas_expansion,0.8582,0.1903,fill,gas_expansion,medium,Muestra representativa adicional
+6,2025-10-15,661.4,20.64,1.06,12.55,-1.18,R2_ACCUMULATION,0.743,gas_expansion,0.8652,0.2014,regime_transition,EXPERT_JUDGMENT,hard,Dia de transicion de regimen. Sistema: gas_expansion
+7,2025-10-16,656.9,25.31,0.5,12.8,-1.85,R2_ACCUMULATION,0.7141,compressed_gas,0.7708,0.1838,rare_compressed_gas,compressed_gas,medium,Isomorfo infrecuente (compressed_gas) — todos incluidos
+8,2025-10-17,660.63,20.78,0.6,12.85,-1.3,R2_ACCUMULATION,0.7414,gas_expansion,0.8369,0.1729,regime_transition,EXPERT_JUDGMENT,hard,Dia de transicion de regimen. Sistema: gas_expansion
+9,2025-10-24,673.42,16.37,2.92,13.28,0.0,R1_EXPANSION,0.7855,gas_expansion,0.9025,0.2366,fill,gas_expansion,medium,Muestra representativa adicional
+10,2025-10-29,683.5,16.92,3.18,13.67,0.0,R1_EXPANSION,0.7855,gas_expansion,0.9019,0.2285,gas_clear,gas_expansion,easy,"Bull run inequivoco: R1_EXPANSION, momentum>3%, VIX bajo"
+11,2025-11-06,666.51,19.5,-0.42,15.31,-2.48,INDETERMINATE,0.6281,lorenz_attractor,0.7333,0.0051,frontier_ambiguous,EXPERT_JUDGMENT,hard,"Frontera gas/lorenz: mom=-0.4%, margen=0.005. Sistema: lorenz_attractor"
+12,2025-11-07,667.17,19.08,-0.03,15.28,-2.39,INDETERMINATE,0.6293,lorenz_attractor,0.7168,0.0013,frontier_ambiguous,EXPERT_JUDGMENT,hard,"Frontera gas/lorenz: mom=-0.0%, margen=0.001. Sistema: lorenz_attractor"
+13,2025-11-10,677.58,17.6,4.35,12.68,-0.87,R1_EXPANSION,0.7739,gas_expansion,0.9224,0.2525,gas_clear,gas_expansion,easy,"Bull run inequivoco: R1_EXPANSION, momentum>3%, VIX bajo"
+14,2025-11-12,679.51,17.51,3.19,11.7,-0.58,R1_EXPANSION,0.7578,gas_expansion,0.9145,0.2592,gas_clear,gas_expansion,easy,"Bull run inequivoco: R1_EXPANSION, momentum>3%, VIX bajo"
+15,2025-11-17,661.9,22.38,0.19,13.27,-3.16,R2_ACCUMULATION,0.6966,compressed_gas,0.8172,0.2198,rare_compressed_gas,compressed_gas,medium,Isomorfo infrecuente (compressed_gas) — todos incluidos
+16,2025-11-18,656.34,24.69,-1.67,13.04,-3.97,R2_ACCUMULATION,0.6858,lorenz_attractor,0.71,0.0096,potential_overdamped,EXPERT_JUDGMENT,hard,overdamped_system tiene sim=0.630. Sistema elige lorenz_attractor. ¿Cual es el correcto?
+17,2025-11-19,658.88,23.66,-1.29,13.13,-3.6,R2_ACCUMULATION,0.6908,lorenz_attractor,0.6899,0.0063,regime_transition,EXPERT_JUDGMENT,hard,Dia de transicion de regimen. Sistema: lorenz_attractor
+18,2025-11-20,648.84,26.42,-2.29,14.01,-5.07,INDETERMINATE,0.5936,phase_transition,0.8915,0.0027,rare_phase_transition,phase_transition,medium,Isomorfo infrecuente (phase_transition) — todos incluidos
+19,2025-11-21,655.3,23.43,-1.9,14.33,-4.13,R2_ACCUMULATION,0.6837,lorenz_attractor,0.7188,0.0134,lorenz_weak,lorenz_attractor,medium,Lorenz con señal débil: sim=0.719 (cerca del umbral 0.65)
+20,2025-11-28,679.52,16.35,-0.58,15.12,-0.58,INDETERMINATE,0.6335,lorenz_attractor,0.7754,0.0237,frontier_ambiguous,EXPERT_JUDGMENT,hard,"Frontera gas/lorenz: mom=-0.6%, margen=0.024. Sistema: lorenz_attractor"
+21,2025-12-02,677.67,16.59,-0.08,14.67,-0.85,INDETERMINATE,0.6499,lorenz_attractor,0.6891,0.0093,frontier_ambiguous,EXPERT_JUDGMENT,hard,"Frontera gas/lorenz: mom=-0.1%, margen=0.009. Sistema: lorenz_attractor"
+22,2025-12-03,680.02,16.08,0.08,14.7,-0.51,R1_EXPANSION,0.7587,gas_expansion,0.7467,0.2189,regime_transition,EXPERT_JUDGMENT,hard,Dia de transicion de regimen. Sistema: gas_expansion
+23,2025-12-12,677.9,15.74,-0.24,13.17,-1.08,INDETERMINATE,0.6468,lorenz_attractor,0.6654,0.0131,frontier_ambiguous,EXPERT_JUDGMENT,hard,"Frontera gas/lorenz: mom=-0.2%, margen=0.013. Sistema: lorenz_attractor"
+24,2025-12-19,678.74,14.91,3.01,12.07,-0.95,R1_EXPANSION,0.7528,gas_expansion,0.9203,0.2705,fill,gas_expansion,medium,Muestra representativa adicional
+25,2025-12-22,682.96,14.08,5.26,10.52,-0.34,R1_EXPANSION,0.761,gas_expansion,0.9383,0.3112,gas_clear,gas_expansion,easy,"Bull run inequivoco: R1_EXPANSION, momentum>3%, VIX bajo"
+26,2025-12-23,686.09,14.0,4.7,10.2,0.0,R1_EXPANSION,0.7655,gas_expansion,0.9361,0.3159,gas_clear,gas_expansion,easy,"Bull run inequivoco: R1_EXPANSION, momentum>3%, VIX bajo"
+27,2026-02-04,684.32,18.64,-0.22,10.51,-1.34,INDETERMINATE,0.6433,lorenz_attractor,0.6699,0.0121,lorenz_weak,lorenz_attractor,medium,Lorenz con señal débil: sim=0.670 (cerca del umbral 0.65)
+28,2026-02-05,675.77,21.77,-2.05,11.1,-2.57,INDETERMINATE,0.6269,lorenz_attractor,0.8086,0.0317,regime_transition,EXPERT_JUDGMENT,hard,Dia de transicion de regimen. Sistema: lorenz_attractor
+29,2026-02-09,692.06,17.36,0.64,13.17,-0.22,R1_EXPANSION,0.7826,gas_expansion,0.8386,0.183,regime_transition,EXPERT_JUDGMENT,hard,Dia de transicion de regimen. Sistema: gas_expansion
+30,2026-02-10,690.23,17.79,-0.28,13.0,-0.48,INDETERMINATE,0.6548,lorenz_attractor,0.6956,0.0134,lorenz_weak,lorenz_attractor,medium,Lorenz con señal débil: sim=0.696 (cerca del umbral 0.65)
+31,2026-02-18,684.42,19.62,-0.78,14.06,-1.32,INDETERMINATE,0.6436,lorenz_attractor,0.8027,0.0221,frontier_ambiguous,EXPERT_JUDGMENT,hard,"Frontera gas/lorenz: mom=-0.8%, margen=0.022. Sistema: lorenz_attractor"
+32,2026-02-24,685.48,19.55,-0.27,12.36,-1.17,INDETERMINATE,0.6456,lorenz_attractor,0.7065,0.0102,frontier_ambiguous,EXPERT_JUDGMENT,hard,"Frontera gas/lorenz: mom=-0.3%, margen=0.010. Sistema: lorenz_attractor"
+33,2026-02-26,687.42,18.63,-0.89,12.65,-0.89,INDETERMINATE,0.6493,lorenz_attractor,0.7811,0.0262,frontier_ambiguous,EXPERT_JUDGMENT,hard,"Frontera gas/lorenz: mom=-0.9%, margen=0.026. Sistema: lorenz_attractor"
+34,2026-03-03,678.48,23.57,-1.68,13.03,-2.18,R2_ACCUMULATION,0.7097,lorenz_attractor,0.7114,0.0189,lorenz_weak,lorenz_attractor,medium,Lorenz con señal débil: sim=0.711 (cerca del umbral 0.65)
+35,2026-03-05,679.45,23.75,-1.19,12.99,-2.04,R2_ACCUMULATION,0.7116,lorenz_attractor,0.6992,0.011,potential_overdamped,EXPERT_JUDGMENT,hard,overdamped_system tiene sim=0.635. Sistema elige lorenz_attractor. ¿Cual es el correcto?
+36,2026-03-06,670.55,29.49,-2.01,13.63,-3.32,R3_TRANSITION,0.6699,phase_transition,0.9397,0.0312,rare_phase_transition,phase_transition,medium,Isomorfo infrecuente (phase_transition) — todos incluidos
+37,2026-03-09,676.42,25.5,0.1,13.35,-2.48,R2_ACCUMULATION,0.7057,compressed_gas,0.7714,0.1682,rare_compressed_gas,compressed_gas,medium,Isomorfo infrecuente (compressed_gas) — todos incluidos
+38,2026-03-10,675.34,24.93,-1.95,11.4,-2.63,R2_ACCUMULATION,0.7037,lorenz_attractor,0.7011,0.0207,frontier_ambiguous,EXPERT_JUDGMENT,hard,"Frontera gas/lorenz: mom=-1.9%, margen=0.021. Sistema: lorenz_attractor"
+39,2026-03-12,664.25,27.29,-3.77,12.21,-4.23,INDETERMINATE,0.6048,lorenz_attractor,0.8933,0.0128,lorenz_clear,lorenz_attractor,easy,"Caos inequivoco: momentum<-3%, VIX elevado, sim_lorenz>0.85"
+40,2026-03-13,660.49,27.19,-4.29,12.27,-4.77,INDETERMINATE,0.5976,lorenz_attractor,0.8928,0.0162,lorenz_clear,lorenz_attractor,easy,"Caos inequivoco: momentum<-3%, VIX elevado, sim_lorenz>0.85"
+41,2026-03-16,667.21,23.51,-1.8,11.95,-3.8,R2_ACCUMULATION,0.6881,lorenz_attractor,0.6792,0.0156,frontier_ambiguous,EXPERT_JUDGMENT,hard,"Frontera gas/lorenz: mom=-1.8%, margen=0.016. Sistema: lorenz_attractor"
+42,2026-03-17,668.96,22.37,-1.61,12.0,-3.55,R2_ACCUMULATION,0.6914,lorenz_attractor,0.6589,0.0156,potential_overdamped,EXPERT_JUDGMENT,hard,overdamped_system tiene sim=0.622. Sistema elige lorenz_attractor. ¿Cual es el correcto?
+43,2026-03-18,659.63,25.09,-3.14,12.8,-4.9,INDETERMINATE,0.5959,lorenz_attractor,0.8799,0.0075,lorenz_clear,lorenz_attractor,easy,"Caos inequivoco: momentum<-3%, VIX elevado, sim_lorenz>0.85"
+44,2026-03-20,648.57,26.78,-4.99,13.3,-6.49,INDETERMINATE,0.5747,lorenz_attractor,0.8935,0.0183,lorenz_clear,lorenz_attractor,easy,"Caos inequivoco: momentum<-3%, VIX elevado, sim_lorenz>0.85"
+45,2026-03-23,655.38,26.15,-4.68,13.65,-5.51,INDETERMINATE,0.5877,lorenz_attractor,0.8975,0.0183,lorenz_clear,lorenz_attractor,easy,"Caos inequivoco: momentum<-3%, VIX elevado, sim_lorenz>0.85"
+46,2026-03-24,653.18,26.95,-4.02,13.34,-5.83,INDETERMINATE,0.5835,lorenz_attractor,0.8957,0.0114,potential_overdamped,EXPERT_JUDGMENT,hard,overdamped_system tiene sim=0.654. Sistema elige lorenz_attractor. ¿Cual es el correcto?
+47,2026-03-25,656.82,25.33,-4.18,13.21,-5.3,INDETERMINATE,0.5905,lorenz_attractor,0.8891,0.0156,potential_overdamped,EXPERT_JUDGMENT,hard,overdamped_system tiene sim=0.655. Sistema elige lorenz_attractor. ¿Cual es el correcto?
+48,2026-03-26,645.09,27.44,-6.68,13.72,-6.99,INDETERMINATE,0.568,lorenz_attractor,0.8952,0.0282,lorenz_clear,lorenz_attractor,easy,"Caos inequivoco: momentum<-3%, VIX elevado, sim_lorenz>0.85"
+49,2026-03-27,634.09,31.05,-7.76,14.52,-8.58,R3_TRANSITION,0.5998,lorenz_attractor,0.9017,0.0095,lorenz_clear,lorenz_attractor,easy,"Caos inequivoco: momentum<-3%, VIX elevado, sim_lorenz>0.85"
+50,2026-03-30,631.97,30.61,-7.62,14.52,-8.88,R3_TRANSITION,0.5958,lorenz_attractor,0.9,0.0084,lorenz_clear,lorenz_attractor,easy,"Caos inequivoco: momentum<-3%, VIX elevado, sim_lorenz>0.85"
