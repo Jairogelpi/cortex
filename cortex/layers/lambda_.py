@@ -110,7 +110,7 @@ class LambdaLayer:
             logger.info(f"Lambda: FRED OK — {[k for k in fred_data if k != 'source']}")
         else:
             sources_failed.append("fred")
-            logger.info(f"Lambda: FRED no disponible (fuente secundaria): {fred_data['error']}")
+            logger.info(f"Lambda: FRED unavailable (secondary source): {fred_data['error']}")
 
         if not sources_used:
             return self._failure_protocol(omega_hypothesis, phi_state, start_time)
