@@ -73,8 +73,8 @@ class LambdaLayer:
 
     SIM_CONFIRM    = 0.65
     SIM_CONTRADICT = 0.40
-    API_CONNECT_TIMEOUT = 5
-    API_READ_TIMEOUT    = 10
+    FRED_CONNECT_TIMEOUT = 5
+    FRED_READ_TIMEOUT    = 10
 
     def __init__(self):
         self.client = OpenAI(
@@ -110,7 +110,9 @@ class LambdaLayer:
             logger.info(f"Lambda: FRED OK — {[k for k in fred_data if k != 'source']}")
         else:
             sources_failed.append("fred")
-            logger.info(f"Lambda: FRED unavailable (secondary source): {fred_data['error']}")
+            logger.info(
+                f"Lambda: FRED unavailable (secondary source): {fred_data.get('error', 'Unknown error')}"
+            )
 
         if not sources_used:
             return self._failure_protocol(omega_hypothesis, phi_state, start_time)
@@ -266,7 +268,7 @@ class LambdaLayer:
             response = requests.get(
                 url,
                 headers=headers,
-                timeout=(self.API_CONNECT_TIMEOUT, self.API_READ_TIMEOUT)
+                timeout=(self.FRED_CONNECT_TIMEOUT, self.FRED_READ_TIMEOUT)
             )
             if response.status_code != 200:
                 return None
@@ -300,7 +302,7 @@ class LambdaLayer:
             response = requests.get(
                 url,
                 params=params,
-                timeout=(self.API_CONNECT_TIMEOUT, self.API_READ_TIMEOUT)
+                timeout=(self.FRED_CONNECT_TIMEOUT, self.FRED_READ_TIMEOUT)
             )
             if response.status_code != 200:
                 return None
