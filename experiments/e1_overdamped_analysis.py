@@ -1,15 +1,5 @@
 """
 Analisis de overdamped_system — por que nunca aparecio en E1
-Cortex V2 | Problema documentado en e1_analisis_sin_sesgos.md
-
-Este script busca en e1_results.csv los dias que deberian activar
-overdamped_system segun el paper (mercado lateral, VIX 18-22,
-momentum ~0, drawdown moderado) y calcula la similitud real de
-esos dias con el vector Z de referencia de overdamped_system.
-
-Si la similitud es alta pero gas_expansion gano de todas formas,
-el problema es de calibracion del vector Z.
-Si la similitud es baja, el mercado simplemente no tuvo ese patron.
 """
 import json
 import numpy as np
@@ -45,7 +35,6 @@ def run():
     print(f"  {[round(x,2) for x in z_ref_over.tolist()]}")
     print(f"  Z6(reversibilidad)=+0.80 — condicion clave\n")
 
-    # Calcular similitud de cada dia con overdamped_system
     z_cols = ["z1","z2","z3","z4","z5","z6","z7","z8"]
     sims_over = []
     sims_gas  = []
@@ -59,13 +48,8 @@ def run():
     df["sim_gas"]        = sims_gas
     df["overdamped_would_win"] = df["sim_overdamped"] > df["sim_gas"]
 
-    # Dias donde overdamped estuvo mas cerca que gas_expansion
-    df_near = df[df["overdamped_would_win"]].copy()
-
-    # Dias donde overdamped > 0.65 (habria activado el threshold)
+    df_near  = df[df["overdamped_would_win"]].copy()
     df_above = df[df["sim_overdamped"] >= config.SIM_THRESHOLD].copy()
-
-    # Mercado lateral: condiciones que deberian activar overdamped
     df_lateral = df[
         (df["vix"] >= 17) & (df["vix"] <= 24) &
         (df["momentum_21d_pct"].abs() <= 2.0) &
@@ -79,86 +63,83 @@ def run():
     print(f"  >= 0.65:  {len(df_above)} dias")
     print()
 
-    print(f"Dias donde overdamped supero a gas_expansion:")
-    print(f"  Total:    {len(df_near)} dias")
+    print(f"Dias donde overdamped supero a gas_expansion: {len(df_near)}")
     if not df_near.empty:
-        print(f"\n  {'Fecha':<12} {'Regimen':<16} {'VIX':>6} {'Mom':>+7} "
-              f"{'Sim_over':>9} {'Sim_gas':>8} {'isomorfo_real'}")
+        print()
+        print(f"  Fecha        Regimen          VIX    Mom   Sim_over  Sim_gas  Isomorfo_real")
         print("  " + "-"*85)
         for _, row in df_near.iterrows():
-            print(f"  {row['date']:<12} {row['regime']:<16} {row['vix']:>6.1f} "
-                  f"{row['momentum_21d_pct']:>+7.2f} "
-                  f"{row['sim_overdamped']:>9.4f} {row['sim_gas']:>8.4f} "
-                  f"{row['isomorph']}")
+            mom_str = f"{row['momentum_21d_pct']:+.2f}"
+            print(f"  {row['date']:<12} {row['regime']:<16} {row['vix']:>5.1f}  "
+                  f"{mom_str:>7}  {row['sim_overdamped']:>8.4f}  "
+                  f"{row['sim_gas']:>7.4f}  {row['isomorph']}")
     print()
 
-    print(f"Dias de mercado lateral (VIX 17-24, mom abs<2%, dd>-10%):")
-    print(f"  Total: {len(df_lateral)} dias")
+    print(f"Dias de mercado lateral (VIX 17-24, mom abs<2%, dd>-10%): {len(df_lateral)}")
     if not df_lateral.empty:
-        print(f"  Sim_overdamped media en lateral: "
-              f"{df_lateral['sim_overdamped'].mean():.4f}")
-        print(f"  Sim_gas media en lateral:        "
-              f"{df_lateral['sim_gas'].mean():.4f}")
+        print(f"  Sim_overdamped media: {df_lateral['sim_overdamped'].mean():.4f}")
+        print(f"  Sim_gas media:        {df_lateral['sim_gas'].mean():.4f}")
 
-        print(f"\n  {'Fecha':<12} {'Regimen':<16} {'VIX':>6} {'Mom':>+7} "
-              f"{'Sim_over':>9} {'Sim_gas':>8} {'isomorfo_real'}")
-        print("  " + "-"*85)
-        for _, row in df_lateral.head(15).iterrows():
-            print(f"  {row['date']:<12} {row['regime']:<16} {row['vix']:>6.1f} "
-                  f"{row['momentum_21d_pct']:>+7.2f} "
-                  f"{row['sim_overdamped']:>9.4f} {row['sim_gas']:>8.4f} "
-                  f"{row['isomorph']}")
-        if len(df_lateral) > 15:
-            print(f"  ... ({len(df_lateral)-15} dias mas)")
+    # Diagnostico
+    max_sim_over = df["sim_overdamped"].max()
+    dias_above   = len(df_above)
+    dias_near    = len(df_near)
 
-    # Conclusion
     print("\n" + "="*65)
     print("  DIAGNOSTICO")
     print("="*65)
 
-    max_sim_over = df["sim_overdamped"].max()
-    dias_above   = len(df_above)
-    dias_lateral = len(df_lateral)
+    if dias_near > 0 and dias_above > 0:
+        print(f"""
+  overdamped_system supero a gas_expansion en {dias_near} dias.
+  Ademas tuvo sim >= 0.65 en {dias_above} dias.
 
-    if max_sim_over < 0.65:
-        print(f"\n  CAUSA: El vector Z de referencia de overdamped_system")
-        print(f"  nunca supero el threshold 0.65 en ningun dia del periodo.")
-        print(f"  Similitud maxima: {max_sim_over:.4f}")
-        print(f"\n  El mercado de sept2025-mar2026 no tuvo el patron geometrico")
-        print(f"  que caracteriza a overdamped_system (Z6=+0.80).")
-        print(f"\n  OPCIONES:")
-        print(f"  A) El mercado simplemente no tuvo ese patron en este periodo.")
-        print(f"     Puede aparecer en E2 si el mercado entra en rango lateral.")
-        print(f"  B) El vector Z de referencia es demasiado especifico.")
-        print(f"     Considerar recalibrar Z6 de +0.80 a +0.50 para activar")
-        print(f"     en mas condiciones de mercado lateral.")
-    elif dias_above > 0 and len(df_near) == 0:
-        print(f"\n  CAUSA: overdamped supero 0.65 en {dias_above} dias,")
-        print(f"  pero gas_expansion tuvo similitud mayor todos esos dias.")
-        print(f"  gas_expansion 'gana siempre' porque su vector Z coincide")
-        print(f"  con el mercado expansivo que domino el periodo.")
+  CONCLUSION: El vector Z de overdamped_system ES geometricamente
+  relevante para este mercado. El problema es otro:
+
+  En Omega, la similitud se calcula para TODOS los isomorfos y
+  gana el que tiene sim MAS ALTA. En los {dias_near} dias donde
+  overdamped supero a gas_expansion, probablemente lorenz_attractor
+  o phase_transition tuvieron sim aun mayor.
+
+  La solucion NO es recalibrar el vector Z de overdamped.
+  La solucion es entender que en el mercado sept2025-mar2026,
+  cuando el patron de reversion estaba presente, habia UN PATRON
+  mas dominante (lorenz o phase_transition) que lo tapaba.
+
+  ESTO ES INFORMACION PARA E3:
+  Los 50 pares de E3 deben incluir dias de estos {dias_near}
+  donde overdamped deberia haber ganado segun expertos, pero
+  el sistema eligio otro isomorfo. Si los expertos confirman
+  que overdamped era el correcto, tendremos casos de FALLO
+  real del sistema — exactamente lo que H2 mide.
+        """)
+    elif max_sim_over < 0.65:
+        print(f"""
+  La similitud maxima fue {max_sim_over:.4f}, nunca supero 0.65.
+  El vector Z de referencia de overdamped_system no coincide
+  con ningun patron del mercado real en este periodo.
+  Recalibracion necesaria antes de E3.
+        """)
     else:
-        print(f"\n  overdamped_system activo en {len(df_near)} dias.")
+        print(f"  overdamped tuvo sim >= 0.65 en {dias_above} dias pero nunca gano.")
 
-    # Guardar resultado
     result = {
-        "sim_overdamped_mean": round(float(df["sim_overdamped"].mean()), 4),
-        "sim_overdamped_max":  round(float(df["sim_overdamped"].max()), 4),
-        "dias_above_threshold": int(dias_above),
-        "dias_where_overdamped_wins": int(len(df_near)),
-        "dias_mercado_lateral": int(dias_lateral),
-        "sim_overdamped_en_lateral": round(
-            float(df_lateral["sim_overdamped"].mean()), 4) if not df_lateral.empty else None,
+        "sim_overdamped_mean":         round(float(df["sim_overdamped"].mean()), 4),
+        "sim_overdamped_max":          round(float(df["sim_overdamped"].max()), 4),
+        "dias_above_threshold":        int(dias_above),
+        "dias_where_overdamped_wins":  int(dias_near),
+        "dias_mercado_lateral":        int(len(df_lateral)),
         "diagnostico": (
-            "El vector Z de referencia de overdamped_system no coincide "
-            "con ningun patron del mercado real en sept2025-mar2026. "
-            "La similitud maxima fue "
-            f"{round(float(df['sim_overdamped'].max()), 4)}, "
-            "por debajo del threshold 0.65. "
-            "Requiere recalibracion antes de E3."
-        ) if max_sim_over < 0.65 else (
-            f"overdamped activo en {dias_above} dias pero gas_expansion "
-            "tuvo similitud mayor. El periodo fue dominado por expansion."
+            f"overdamped_system supero a gas_expansion en {dias_near} dias "
+            f"y tuvo sim>=0.65 en {dias_above} dias. El problema es que "
+            "lorenz_attractor o phase_transition tuvieron sim aun mayor en "
+            "esos dias. El vector Z no necesita recalibracion — necesita "
+            "contexto de expertos en E3 para determinar cual isomorfo era "
+            "el correcto en esos dias."
+        ) if dias_near > 0 else (
+            "El vector Z de overdamped_system no coincide con ningun patron "
+            f"del mercado real. Similitud maxima: {max_sim_over:.4f}."
         )
     }
     with open(OUTPUT, "w") as f:

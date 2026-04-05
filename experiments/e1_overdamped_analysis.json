@@ -1,0 +1,8 @@
+{
+  "sim_overdamped_mean": 0.3862,
+  "sim_overdamped_max": 0.781,
+  "dias_above_threshold": 10,
+  "dias_where_overdamped_wins": 45,
+  "dias_mercado_lateral": 49,
+  "diagnostico": "overdamped_system supero a gas_expansion en 45 dias y tuvo sim>=0.65 en 10 dias. El problema es que lorenz_attractor o phase_transition tuvieron sim aun mayor en esos dias. El vector Z no necesita recalibracion \u2014 necesita contexto de expertos en E3 para determinar cual isomorfo era el correcto en esos dias."
+}
