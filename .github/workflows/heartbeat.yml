@@ -1,0 +1,69 @@
+# Cortex V2 — Heartbeat diario
+# Se ejecuta cada dia a las 09:00 UTC (11:00 Madrid)
+# Publica el diario de Omicron en el repositorio
+# Referencia: paper Seccion 5 — "publicados en GitHub cada dia"
+
+name: cortex-heartbeat
+
+on:
+  schedule:
+    - cron: '0 9 * * 1-5'   # Lunes a viernes 09:00 UTC
+  workflow_dispatch:          # Permite ejecutar manualmente desde GitHub
+
+jobs:
+  heartbeat:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15       # Timeout de seguridad
+
+    steps:
+      - name: Checkout repositorio
+        uses: actions/checkout@v4
+
+      - name: Configurar Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Instalar dependencias
+        run: pip install -r requirements.txt
+
+      - name: Crear directorios necesarios
+        run: |
+          mkdir -p logs
+          mkdir -p data/memory
+          mkdir -p data/checkpoints
+
+      - name: Ejecutar pipeline Cortex V2
+        env:
+          ALPACA_API_KEY: ${{ secrets.ALPACA_API_KEY }}
+          ALPACA_SECRET_KEY: ${{ secrets.ALPACA_SECRET_KEY }}
+          ALPACA_BASE_URL: https://paper-api.alpaca.markets/v2
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          OPENROUTER_BASE_URL: https://openrouter.ai/api/v1
+          MODEL_PHI: anthropic/claude-sonnet-4-6
+          MODEL_OMEGA: anthropic/claude-opus-4-6
+          MODEL_KAPPA: anthropic/claude-haiku-4-5
+          MODEL_XI: anthropic/claude-haiku-4-5
+          MODEL_SIGMA: anthropic/claude-sonnet-4-6
+        run: |
+          python -m cortex.pipeline
+          echo "Pipeline ejecutado correctamente"
+
+      - name: Publicar diario de Omicron en el repositorio
+        run: |
+          git config user.name "cortex-bot"
+          git config user.email "cortex-bot@users.noreply.github.com"
+
+          # Solo hacer commit si hay cambios en logs/
+          if git diff --quiet logs/ 2>/dev/null || [ ! -d "logs" ]; then
+            echo "Sin cambios en logs — nada que publicar"
+          else
+            git add logs/
+            DATE=$(date +%Y-%m-%d)
+            git commit -m "obs: diario Omicron $DATE
+
+          $(tail -5 logs/cortex_$(date +%Y%m%d).jsonl 2>/dev/null || echo 'sin datos')"
+            git push
+            echo "Diario publicado en GitHub"
+          fi
