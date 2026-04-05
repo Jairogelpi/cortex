@@ -2,11 +2,12 @@
 ## A Reliable Agentic Architecture for 2026
 
 [![Paper Trading](https://img.shields.io/badge/Alpaca-Paper%20Trading-green)](https://alpaca.markets)
+[![OSF Pre-registration](https://img.shields.io/badge/OSF-Pre--registered-blue)](https://osf.io/wdkcx)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue)](LICENSE)
-[![Pre-registro OSF](https://img.shields.io/badge/OSF-Pre--registro%20pendiente-orange)](https://osf.io)
+[![Integration Tests](https://img.shields.io/badge/Tests-53%2F53%20PASS-brightgreen)](tests/test_integration.py)
 
 Arquitectura agentiva de 10 capas para paper trading fiable.
-**7 hipótesis falsables · 7 escenarios de fallo · Pre-registro OSF pendiente.**
+**7 hipótesis falsables · 7 escenarios de fallo · Pre-registro OSF: https://osf.io/wdkcx**
 
 ---
 
@@ -15,28 +16,35 @@ Arquitectura agentiva de 10 capas para paper trading fiable.
 | Fase | Capa | Estado | Resultado validado (5 abril 2026) |
 |------|------|--------|-----------------------------------|
 | 0 | Entorno + conexiones | ✅ | Alpaca $100K activo |
-| 1 | Φ Factorizador de estado | ✅ | Ortogonalidad OK, var=0.2594 |
-| 2 | Κ Critic externo (δ) | ✅ | δ=0.5966, HOLD_CASH |
-| 3 | Ω Motor de hipótesis | ✅ | Lorenz Sim=0.9645, CASH |
-| 4 | Λ Validación anti-sesgo | ✅ | Sim_adj=0.8445, CONFIRMED |
+| 1 | Φ Factorizador de estado | ✅ | Ortogonalidad OK, var=0.2583 |
+| 2 | Κ Critic externo (δ) | ✅ | δ=0.5961, HOLD_CASH |
+| 3 | Ω Motor de hipótesis | ✅ | Lorenz Sim=0.9343, CASH |
+| 4 | Λ Validación anti-sesgo | ✅ | Sim_adj=0.7922, CONFIRMED, FRED OK |
 | 5 | Μ Memoria selectiva | ✅ | Rechazado correcto (δ<0.70) |
-| 6 | Σ Orquestador | ✅ | HOLD, monitor_regime |
-| 7 | Ρ Fiabilidad | ✅ | Stop-loss OK, checkpoint guardado |
-| 8 | Τ Governance | ✅ | HOLD_NO_ACTION aprobado |
-| 9 | Ο Observabilidad | ✅ | HEARTBEAT en logs/ |
+| 6 | Σ Orquestador | ✅ | HOLD, monitor_regime, 0.000s |
+| 7 | Ρ Fiabilidad | ✅ | Stop-loss OK + activado en -16% |
+| 8 | Τ Governance | ✅ | HOLD_NO_ACTION + bloqueo en real |
+| 9 | Ο Observabilidad | ✅ | HEARTBEAT en logs/ + GitHub Actions |
+| — | Test integración | ✅ | **53/53 checks pasados** |
 
 ---
 
-## Resultado del día
+## Pre-registro OSF
+
+**https://osf.io/wdkcx** — sellado el 5 de abril de 2026
+
+Los 7 parámetros y 7 hipótesis son inmutables desde este momento.
+Cualquier resultado de E1-E5 que contradiga H1-H7 se publica completo.
+
+---
+
+## Resultado del día (5 abril 2026)
 
 ```
-Fecha:    5 abril 2026
-VIX:      23.87 | SPY: $655.83 | Momentum: -4.02%
-Régimen:  INDETERMINATE
-Δ:        0.5966
-Isomorfo: lorenz_attractor (Sim=0.9645)
-Lambda:   CONFIRMED (Sim_adj=0.8445, 2 contradicciones detectadas)
-Acción:   HOLD — 100% cash. No se ejecuta ninguna orden en Alpaca.
+VIX: 23.87 | SPY: $655.83 | Momentum: -4.02% | Régimen: INDETERMINATE
+δ: 0.5961 | Isomorfo: lorenz_attractor (Sim=0.9343)
+Lambda: CONFIRMED (Sim_adj=0.7922) | FRED: T10Y2Y=0.51
+Acción: HOLD — 100% cash
 ```
 
 ---
@@ -47,21 +55,13 @@ Acción:   HOLD — 100% cash. No se ejecuta ninguna orden en Alpaca.
 INPUT → Φ → Κ → Ω → Λ → Μ → Σ → Ρ → Τ → Ο → ACTION
 ```
 
-Cada capa opera sobre representaciones intermedias vía API.
-Ninguna modifica el modelo LLM base.
-
 ---
 
-## Setup rápido
+## Setup
 
 ```cmd
 cd cortex_v2
-setup.bat
-```
-
-Edita `.env` con tus claves (usa `.env.example` como plantilla).
-
-```cmd
+call venv\Scripts\activate.bat
 python -m cortex.pipeline
 ```
 
@@ -70,38 +70,50 @@ python -m cortex.pipeline
 ## Tests
 
 ```cmd
-test_conexion.bat          # Alpaca + Yahoo Finance
-test_phi.bat               # Capa Φ
-test_kappa.bat             # Capa Κ (δ score)
-test_omega.bat             # Capa Ω (isomorfos + Opus)
-test_lambda.bat            # Capa Λ (validación anti-sesgo)
-test_mu.bat                # Capa Μ (memoria selectiva)
-test_pipeline_completo.bat # Pipeline completo 10 capas
+test_integracion.bat          # 53 checks — invariantes del paper
+test_pipeline_completo.bat    # pipeline completo con datos reales
+test_phi.bat / test_kappa.bat / test_omega.bat
+test_lambda.bat / test_mu.bat
+test_sigma.bat / test_rho.bat / test_tau.bat / test_omicron.bat
 ```
 
 ---
 
-## Modelos por capa (Plan-and-Execute heterogéneo)
-
-| Capa | Modelo | Coste | Justificación |
-|------|--------|-------|---------------|
-| Φ | Claude Sonnet 4.6 | 1× | Comprensión semántica |
-| Κ | Claude Haiku 4.5 | 0.1× | Fórmula determinista |
-| Ω | Claude Opus 4.6 | 5× | Analogía cross-domain |
-| Λ | Claude Sonnet 4.6 | 1× | Interpretación datos |
-| Ξ | Claude Haiku 4.5 | 0.1× | Subagentes estructurados |
-| Σ | Claude Sonnet 4.6 | 1× | Orquestación |
-
----
-
-## Umbrales pre-registrados en OSF
+## Parámetros pre-registrados (inmutables)
 
 | Parámetro | Valor | Justificación |
 |-----------|-------|---------------|
-| DELTA_BACKTRACK | 0.65 | Límite inferior aceptable (8pts bajo techo natural) |
-| DELTA_CONSOLIDATE | 0.70 | Ajustado 0.75→0.70 pre-OSF (techo natural=0.73) |
-| SIM_THRESHOLD | 0.65 | Umbral activación isomorfos Omega |
-| STOP_LOSS_PCT | 0.15 | Stop-loss absoluto 15% |
+| DELTA_BACKTRACK | 0.65 | Límite inferior aceptable |
+| DELTA_CONSOLIDATE | 0.70 | Techo natural=0.73, ajustado pre-OSF |
+| SIM_THRESHOLD | 0.65 | Umbral activación isomorfos |
+| STOP_LOSS_PCT | 0.15 | Stop-loss absoluto |
+
+---
+
+## Hipótesis falsables (H1–H7)
+
+Ver pre-registro completo: **https://osf.io/wdkcx**
+
+| H | Afirmación | Falsificación |
+|---|-----------|---------------|
+| H1 | Tokens_Cortex ≤ 0.45× baseline | Tokens_Cortex > 0.45× |
+| H2 | F1_isomorfos ≥ F1_baseline + 0.20 | F1 < baseline + 0.20 |
+| H3 | TPR_abstención ≥ 0.90 | TPR < 0.90 |
+| H4 | Sharpe ≥ 0.90, MDD ≤ 50%×SPY | Sharpe < 0.90 o MDD > 50% |
+| H5 | δ_inicial_Mu ≥ 0.71 vs 0.65 sin Mu | Sin diferencia |
+| H6 | Lambda CONTRADICTED ≥ 85% casos incorrectos | <85% detección |
+| H7 | Uptime ≥ 0.95, sin crash no gestionado | Crash o loop >$50 |
+
+---
+
+## Modelos por capa
+
+| Capa | Modelo | Coste relativo |
+|------|--------|----------------|
+| Φ | claude-sonnet-4-6 (temp=0.1) | 1× |
+| Κ | claude-haiku-4-5 | 0.1× |
+| Ω | claude-opus-4-6 | 5× (1 llamada/régimen) |
+| Λ | claude-sonnet-4-6 (temp=0.0) | 1× |
 
 ---
 
@@ -110,31 +122,31 @@ test_pipeline_completo.bat # Pipeline completo 10 capas
 ```
 cortex_v2/
 ├── cortex/
-│   ├── config.py           # Umbrales pre-registrables
-│   ├── market_data.py      # Alpaca + Yahoo Finance
+│   ├── config.py              # umbrales pre-registrados
+│   ├── market_data.py         # Alpaca + Yahoo Finance + FRED
+│   ├── pipeline.py            # 10 capas en secuencia
 │   └── layers/
-│       ├── phi.py          # Φ Factorizador
-│       ├── kappa.py        # Κ Critic externo
-│       ├── omega.py        # Ω Motor hipótesis
-│       ├── lambda_.py      # Λ Validación
-│       ├── mu.py           # Μ Memoria
-│       ├── sigma.py        # Σ Orquestador
-│       ├── rho.py          # Ρ Fiabilidad
-│       ├── tau.py          # Τ Governance
-│       └── omicron.py      # Ο Observabilidad
-├── cortex/pipeline.py      # Pipeline completo
-├── docs/                   # Documentación científica
+│       ├── phi.py             # Φ — factorizador
+│       ├── kappa.py           # Κ — critic externo
+│       ├── omega.py           # Ω — motor hipótesis
+│       ├── lambda_.py         # Λ — validación anti-sesgo
+│       ├── mu.py              # Μ — memoria selectiva
+│       ├── sigma.py           # Σ — orquestador
+│       ├── rho.py             # Ρ — fiabilidad
+│       ├── tau.py             # Τ — governance
+│       └── omicron.py         # Ο — observabilidad
+├── tests/
+│   └── test_integration.py    # 53 checks
+├── docs/
+│   ├── PRE_REGISTRO_OSF.md    # parámetros + hipótesis completas
 │   ├── DOCUMENTACION_MAESTRA.md
-│   ├── FASE_1_CAPA_PHI.md ... FASE_5_CAPA_MU.md
-│   └── CHANGELOG_UMBRALES.md
-└── .env.example            # Plantilla de claves
+│   └── FASE_1_CAPA_PHI.md ... FASE_9_CAPA_OMICRON.md
+├── logs/
+│   ├── cortex_20260405.jsonl  # telemetría machine-readable
+│   └── cortex_20260405.md     # diario para GitHub
+└── .github/workflows/
+    └── heartbeat.yml          # pipeline diario 09:00 UTC L-V
 ```
-
----
-
-## Diario de trading (Omicron)
-
-Los logs se publican diariamente. Ver `logs/` para el historial completo.
 
 ---
 
@@ -143,15 +155,16 @@ Los logs se publican diariamente. Ver `logs/` para el historial completo.
 - Lee et al. (Nature Communications 2025) — fundamento Φ
 - Zhou et al. (Nature Neuroscience 2025) — fundamento Κ
 - Bellmund et al. (Nature Neuroscience 2025) — fundamento Ω
-- PHANTOM (NeurIPS 2025) — riesgo confabulación
+- Badre (2025) — fundamento Σ
+- PHANTOM (NeurIPS 2025) — riesgo confabulación Lambda
 - CMU + AI2 (febrero 2026) — seguridad agentes multi-turno
 
 ---
 
 ## Licencia
 
-MIT License — ver `LICENSE`
+MIT — ver `LICENSE`
 
-## Contacto
+## Pre-registro
 
-github.com/jairogelpi/cortex — issues para code, data, validation, review
+OSF: https://osf.io/wdkcx | GitHub: https://github.com/Jairogelpi/cortex
