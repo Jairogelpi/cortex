@@ -14,6 +14,9 @@ class Config:
     OPENROUTER_API_KEY: str = os.getenv("OPENROUTER_API_KEY", "")
     OPENROUTER_BASE_URL: str = os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1")
 
+    # FRED (opcional; usado como fallback JSON en Lambda)
+    FRED_API_KEY: str = os.getenv("FRED_API_KEY", "")
+
     # Modelos por capa (Plan-and-Execute heterogeneo — Seccion 8.10 del paper)
     MODEL_PHI: str = os.getenv("MODEL_PHI", "anthropic/claude-sonnet-4-6")
     MODEL_OMEGA: str = os.getenv("MODEL_OMEGA", "anthropic/claude-opus-4-6")

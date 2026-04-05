@@ -294,10 +294,13 @@ class LambdaLayer:
 
     def _fetch_fred_json(self, series_id: str) -> Optional[float]:
         try:
+            api_key = (config.FRED_API_KEY or "").strip()
+            if not api_key:
+                return None
             url    = "https://api.stlouisfed.org/fred/series/observations"
             params = {
                 "series_id": series_id,
-                "api_key":   "abcdefghijklmnopqrstuvwxyz123456",
+                "api_key":   api_key,
                 "file_type": "json",
                 "limit":     3,
                 "sort_order":"desc"
