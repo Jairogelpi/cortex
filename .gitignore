@@ -1,0 +1,38 @@
+# Archivos a ignorar en Git — nunca subir al repositorio
+# ─────────────────────────────────────────────────────
+
+# CRITICO: claves API — nunca en GitHub
+.env
+
+# Entorno virtual de Python
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Datos de sesion (privados, no necesarios en repo)
+data/memory/
+data/checkpoints/
+
+# Logs (se generan automaticamente)
+logs/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+
+# Windows
+desktop.ini
+Thumbs.db
+
+# macOS
+.DS_Store
+
+# Archivos temporales Python
+*.egg-info/
+dist/
+build/
+.pytest_cache/
