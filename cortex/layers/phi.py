@@ -4,6 +4,13 @@ Cortex V2, Fase 1
 
 Fundamentado en Lee et al. (Nature Communications 2025).
 Factoriza indicadores de mercado en 8 dimensiones ortogonales Z1-Z8.
+
+FIX temperatura:
+    PhiLayer acepta parametro temperature en __init__.
+    Por defecto: 0.1 (razonamiento semantico rico para Phi principal).
+    Lambda usa PhiLayer(temperature=0.0) para reproducibilidad
+    determinista en la validacion interna.
+    Esto resuelve el problema de variacion entre ejecuciones en Lambda.
 """
 import json
 import numpy as np
@@ -56,7 +63,6 @@ class PhiState:
         }
 
     def summary(self) -> str:
-        z = self.to_vector()
         orth = self.check_orthogonality()
         lines = [
             f"Phi State | Regimen: {self.regime} | Confianza: {self.confidence:.2f}",
@@ -78,30 +84,39 @@ class PhiLayer:
     """
     Capa Phi: factorizador de estado del mercado.
     Pipeline: determinista -> LLM -> separacion forzada -> PhiState.
+
+    Args:
+        temperature: temperatura del LLM.
+            0.1 (defecto) para Phi principal — razonamiento semantico rico.
+            0.0 para Lambda interna — reproducibilidad determinista.
     """
 
-    MIN_SEPARATION = 0.18  # separacion minima entre cualquier par Zi, Zj
+    MIN_SEPARATION = 0.18
 
-    def __init__(self):
+    def __init__(self, temperature: float = 0.1):
         self.client = OpenAI(
             api_key=config.OPENROUTER_API_KEY,
             base_url=config.OPENROUTER_BASE_URL
         )
         self.model = config.MODEL_PHI
-        logger.info(f"Capa Phi inicializada: {self.model}")
+        self.temperature = temperature
+        logger.info(f"Capa Phi inicializada: {self.model} (temperature={temperature})")
 
     def factorize(self, indicators: dict) -> PhiState:
         """Pipeline completo: determinista -> LLM -> separacion forzada."""
-        base = self._factorize_deterministic(indicators)
-        refined = self._refine_with_llm(indicators, base)
+        base      = self._factorize_deterministic(indicators)
+        refined   = self._refine_with_llm(indicators, base)
         separated = self._enforce_separation(refined)
-        state = self._build_state(separated, indicators, base["confidence"])
-        logger.info(f"Phi: regimen={state.regime}, confianza={state.confidence:.2f}, var={np.var(state.to_vector()):.4f}")
+        state     = self._build_state(separated, indicators, base["confidence"])
+        logger.info(
+            f"Phi: regimen={state.regime}, confianza={state.confidence:.2f}, "
+            f"var={np.var(state.to_vector()):.4f}"
+        )
         return state
 
     def _factorize_deterministic(self, ind: dict) -> dict:
         """
-        8 dimensiones con variables fuente distintas para garantizar ortogonalidad.
+        8 dimensiones con variables fuente distintas para ortogonalidad.
         Cada Zi se construye sobre un aspecto diferente del mercado.
         """
         vix      = ind.get("vix", 20.0)
@@ -110,27 +125,15 @@ class PhiLayer:
         drawdown = ind.get("drawdown_90d_pct", 0.0)
         regime   = ind.get("regime", "INDETERMINATE")
 
-        # Z1: tendencia pura (momentum normalizado). Rango [-1, 1].
         z1 = float(np.clip(momentum / 8.0, -1, 1))
-
-        # Z2: estres de mercado (VIX). Anclado: 20=neutro, >40=extremo.
         z2 = float(np.clip((vix - 20.0) / 22.0, -1, 1))
-
-        # Z3: nivel absoluto de volatilidad. Anclado a benchmark 12%.
-        # Escala diferente a Z2 (vol_real != VIX).
         z3 = float(np.clip((vol - 12.0) / 18.0, -1, 1))
 
-        # Z4: coherencia entre momentum y volatilidad (producto cruzado).
-        # Positivo = tendencia con volumen. Negativo = ruido sin direccion.
         sign_mom = np.sign(momentum) if abs(momentum) > 0.5 else 0
         z4 = float(np.clip(sign_mom * (vol / 25.0), -1, 1))
 
-        # Z5: posicion en ciclo largo (drawdown). Escala: -40% = crisis.
-        # Completamente independiente de VIX y vol.
         z5 = float(np.clip(drawdown / -35.0, -1, 1))
 
-        # Z6: presion de mean-reversion. Alta cuando VIX > 30 (panico).
-        # Logica de umbrales no lineal -- distinta a Z2 (lineal).
         if vix > 35:
             z6 = 0.85
         elif vix > 28:
@@ -142,8 +145,6 @@ class PhiLayer:
         else:
             z6 = -0.20
 
-        # Z7: valencia neta ponderada (combinacion global).
-        # Es la unica dimension sintetica -- valor distinto por construccion.
         z7 = float(np.clip(
             0.45 * (momentum / 8.0) +
             0.30 * (drawdown / -35.0) +
@@ -151,7 +152,6 @@ class PhiLayer:
             -1, 1
         ))
 
-        # Z8: complejidad/entropia del regimen. Mapa discreto.
         z8_map = {
             "R1_EXPANSION":    -0.70,
             "R2_ACCUMULATION": -0.25,
@@ -175,7 +175,10 @@ class PhiLayer:
         }
 
     def _refine_with_llm(self, indicators: dict, base: dict) -> dict:
-        """Claude Sonnet refina la factorizacion con razonamiento semantico."""
+        """
+        Claude Sonnet refina la factorizacion con razonamiento semantico.
+        Usa self.temperature: 0.1 para Phi principal, 0.0 para Lambda interna.
+        """
         prompt = f"""Eres la capa Phi de Cortex V2. Refina esta factorizacion de mercado.
 
 INDICADORES:
@@ -193,34 +196,32 @@ Devuelve SOLO JSON sin texto adicional:
             resp = self.client.chat.completions.create(
                 model=self.model,
                 messages=[{"role": "user", "content": prompt}],
-                max_tokens=300, temperature=0.1
+                max_tokens=300,
+                temperature=self.temperature
             )
-            raw = resp.choices[0].message.content.strip()
-            raw = raw.replace("```json", "").replace("```", "").strip()
+            raw  = resp.choices[0].message.content.strip()
+            raw  = raw.replace("```json", "").replace("```", "").strip()
             data = json.loads(raw)
             logger.info(f"Phi LLM: {data.get('reasoning', '')}")
             return {k: float(data.get(k, base[k])) for k in ["Z1","Z2","Z3","Z4","Z5","Z6","Z7","Z8"]}
         except Exception as e:
-            logger.warning(f"Phi LLM fallback: {e}")
+            logger.warning(f"Phi LLM fallback (temperature={self.temperature}): {e}")
             return {k: base[k] for k in ["Z1","Z2","Z3","Z4","Z5","Z6","Z7","Z8"]}
 
     def _enforce_separation(self, z_dict: dict) -> dict:
         """
         Garantiza separacion minima entre todas las dimensiones.
         Si dos Zi son demasiado similares, empuja el segundo hacia fuera.
-        Preserva el orden relativo y el signo original.
         """
         keys = ["Z1","Z2","Z3","Z4","Z5","Z6","Z7","Z8"]
-        z = np.array([z_dict[k] for k in keys])
+        z    = np.array([z_dict[k] for k in keys])
 
-        max_iterations = 20
-        for _ in range(max_iterations):
+        for _ in range(20):
             changed = False
             for i in range(len(z)):
                 for j in range(i + 1, len(z)):
                     diff = z[j] - z[i]
                     if abs(diff) < self.MIN_SEPARATION:
-                        # Empuja los dos en direcciones opuestas
                         push = (self.MIN_SEPARATION - abs(diff)) / 2.0 + 0.01
                         if diff >= 0:
                             z[i] -= push
@@ -228,7 +229,6 @@ Devuelve SOLO JSON sin texto adicional:
                         else:
                             z[i] += push
                             z[j] -= push
-                        # Clip al rango valido
                         z[i] = float(np.clip(z[i], -1.0, 1.0))
                         z[j] = float(np.clip(z[j], -1.0, 1.0))
                         changed = True
@@ -239,10 +239,10 @@ Devuelve SOLO JSON sin texto adicional:
 
     def _build_state(self, z: dict, indicators: dict, confidence: float) -> PhiState:
         return PhiState(
-            Z1_estructura=z["Z1"], Z2_dinamica=z["Z2"],
-            Z3_escala=z["Z3"], Z4_causalidad=z["Z4"],
-            Z5_temporalidad=z["Z5"], Z6_reversibilidad=z["Z6"],
-            Z7_valencia=z["Z7"], Z8_complejidad=z["Z8"],
+            Z1_estructura=z["Z1"],  Z2_dinamica=z["Z2"],
+            Z3_escala=z["Z3"],      Z4_causalidad=z["Z4"],
+            Z5_temporalidad=z["Z5"],Z6_reversibilidad=z["Z6"],
+            Z7_valencia=z["Z7"],    Z8_complejidad=z["Z8"],
             regime=indicators.get("regime", "INDETERMINATE"),
             confidence=confidence,
             raw_indicators=indicators
@@ -253,29 +253,28 @@ def test_phi():
     from cortex.market_data import MarketData
 
     print("\n" + "="*50)
-    print("  CORTEX V2 - Test Capa Phi (v3 con separacion forzada)")
+    print("  CORTEX V2 - Test Capa Phi")
     print("="*50 + "\n")
 
-    md = MarketData()
+    md         = MarketData()
     indicators = md.get_regime_indicators()
 
     print("Indicadores:")
     for k, v in indicators.items():
         print(f"  {k}: {v}")
 
-    print("\nFactorizando...")
-    phi = PhiLayer()
+    print("\nFactorizando (temperature=0.1)...")
+    phi   = PhiLayer()
     state = phi.factorize(indicators)
-
     print("\n" + state.summary())
 
     orth = state.check_orthogonality()
     print(f"\nOrtogonalidad: {'OK' if orth['orthogonality_ok'] else 'REVISAR'}")
-    if orth['pairs_too_similar']:
+    if orth["pairs_too_similar"]:
         print(f"  Pares similares: {orth['pairs_too_similar']}")
 
     print("\n" + "="*50)
-    print("  Siguiente: capa Kappa (critic externo delta)")
+    print("  Siguiente: capa Kappa")
     print("="*50 + "\n")
     return state
 
