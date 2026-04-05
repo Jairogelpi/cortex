@@ -179,6 +179,10 @@ class PhiLayer:
         Claude Sonnet refina la factorizacion con razonamiento semantico.
         Usa self.temperature: 0.1 para Phi principal, 0.0 para Lambda interna.
         """
+        if self.temperature == 0.0:
+            logger.debug("Phi LLM omitido: temperature=0.0 usa salida determinista base")
+            return {k: base[k] for k in ["Z1", "Z2", "Z3", "Z4", "Z5", "Z6", "Z7", "Z8"]}
+
         prompt = f"""Eres la capa Phi de Cortex V2. Refina esta factorizacion de mercado.
 
 INDICADORES:
