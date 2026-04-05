@@ -73,6 +73,7 @@ class LambdaLayer:
 
     SIM_CONFIRM    = 0.65
     SIM_CONTRADICT = 0.40
+    API_TIMEOUT = 30
     FRED_CONNECT_TIMEOUT = 5
     FRED_READ_TIMEOUT    = 10
 
@@ -104,6 +105,8 @@ class LambdaLayer:
             logger.warning(f"Lambda: Yahoo Finance fallo: {yf_data['error']}")
 
         fred_data = self._get_fred_data()
+        if not isinstance(fred_data, dict):
+            fred_data = {"error": "Invalid FRED response"}
         if "error" not in fred_data:
             evidence.update(fred_data)
             sources_used.append("fred")
