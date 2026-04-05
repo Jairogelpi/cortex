@@ -74,8 +74,8 @@ class LambdaLayer:
     SIM_CONFIRM    = 0.65
     SIM_CONTRADICT = 0.40
     API_TIMEOUT         = 30
-    FRED_CONNECT_TIMEOUT = 5
-    FRED_READ_TIMEOUT    = 10
+    FRED_CONNECT_TIMEOUT = 10
+    FRED_READ_TIMEOUT    = 30
 
     def __init__(self):
         self.client = OpenAI(
