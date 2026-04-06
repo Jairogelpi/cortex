@@ -1,6 +1,13 @@
 """
 E2 ABLATION RUNNER — Orquestador de las 4 condiciones paralelas
 Experimento E2 | OSF: https://osf.io/wdkcx
+
+NOTA IMPORTANTE SOBRE EL LOG:
+  Cada dia debe tener EXACTAMENTE 4 lineas en e2_ablation_YYYYMMDD.jsonl
+  (una por condicion: A, B, C, D).
+  Si se ejecuta el script varias veces el mismo dia (tests, depuracion),
+  solo se conserva el ULTIMO run de cada condicion.
+  Esto evita contaminar el analisis con datos de prueba.
 """
 import json
 import time
@@ -12,6 +19,39 @@ from cortex.config import config
 
 LOG_DIR       = Path("logs")
 INITIAL_VALUE = 100_000.0
+
+
+def _save_results(log_path: Path, results: dict, total_ms: int):
+    """
+    Guarda resultados en el log diario.
+    Si ya existe una entrada para esa condicion hoy, la sobreescribe.
+    Garantiza exactamente 1 linea por condicion por dia.
+    """
+    # Leer entradas existentes del dia
+    existing = {}
+    if log_path.exists():
+        for line in log_path.read_text(encoding="utf-8").splitlines():
+            if line.strip():
+                try:
+                    r = json.loads(line)
+                    cond = r.get("condition")
+                    if cond and "error" not in r:
+                        existing[cond] = r  # sobreescribe anterior del mismo dia
+                except Exception:
+                    pass
+
+    # Actualizar con los nuevos resultados
+    for cond, res in results.items():
+        if "error" not in res:
+            res["total_ms"] = total_ms
+            existing[cond] = res
+
+    # Escribir en orden A, B, C, D
+    with open(log_path, "w", encoding="utf-8") as f:
+        for cond in ["A", "B", "C", "D"]:
+            if cond in existing:
+                f.write(json.dumps(existing[cond],
+                                   default=str, ensure_ascii=False) + "\n")
 
 
 def run_e2_ablation(conditions: list = None) -> dict:
@@ -50,7 +90,9 @@ def run_e2_ablation(conditions: list = None) -> dict:
                 "lambda_verdict":  res_a.get("lambda_verdict", ""),
                 "stop_loss":       res_a["stop_loss"],
                 "portfolio_value": res_a["portfolio_value"],
-                "tokens_total":    2800,  # estimacion: Phi+Kappa+Omega+Lambda ~2800
+                # Tokens estimados: Phi(~800)+Kappa(~200)+Omega(~1200)+Lambda(~600)
+                # H1 requiere medicion real — esto es una estimacion conservadora
+                "tokens_total":    2800,
             }
         except Exception as e:
             logger.error(f"Condicion A fallo: {e}")
@@ -92,12 +134,8 @@ def run_e2_ablation(conditions: list = None) -> dict:
 
     total_ms = round((time.time() - t_global) * 1000)
 
-    # Guardar solo resultados validos (sin errores)
-    with open(log_path, "a", encoding="utf-8") as f:
-        for cond, res in results.items():
-            if "error" not in res:
-                res["total_ms"] = total_ms
-                f.write(json.dumps(res, default=str, ensure_ascii=False) + "\n")
+    # Guardar — 1 linea por condicion por dia
+    _save_results(log_path, results, total_ms)
 
     # Resumen consola
     print("\n" + "="*70)
@@ -122,7 +160,7 @@ def run_e2_ablation(conditions: list = None) -> dict:
             "A": f"Lambda={r.get('lambda_verdict','?')} iso={r.get('isomorph','?')}",
             "B": r.get("reasoning","")[:45],
             "C": f"iso={r.get('isomorph','?')} Lambda=OFF",
-            "D": "deterministico 0 tokens",
+            "D": "deterministico 0 tokens LLM",
         }.get(cond, "")
         print(f"  {cond:<6} {dec:<14} {conf:>8.4f} "
               f"{tok:>8} {lat:>8}ms  {info}")
@@ -133,12 +171,16 @@ def run_e2_ablation(conditions: list = None) -> dict:
         ratio  = tok_a / tok_b
         status = "PASS" if ratio <= 0.45 else "FAIL"
         print(f"\n  H1 A={tok_a} / B={tok_b} = {ratio:.3f} (<=0.45): {status}")
+        if status == "FAIL":
+            print(f"  ADVERTENCIA: A usa {ratio:.1f}x mas tokens que B.")
+            print(f"  A necesita {int(tok_b*0.45)} tokens o menos para cumplir H1.")
 
     errors = [c for c, r in results.items() if "error" in r]
     if errors:
         print(f"\n  ERRORES: {errors}")
 
-    print(f"\n  Log: {log_path} | Total: {total_ms}ms")
+    print(f"\n  Log: {log_path} (1 linea/condicion/dia)")
+    print(f"  Tiempo total: {total_ms}ms")
     print("="*70 + "\n")
 
     return results
