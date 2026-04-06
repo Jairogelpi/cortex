@@ -1,0 +1,109 @@
+Ejecutando diagnostico... 
+=== TEST D === 
+2026-04-07 01:25:40.803 | INFO     | cortex.market_data:__init__:35 - MarketData inicializado con Alpaca Paper Trading
+2026-04-07 01:25:41.295 | INFO     | cortex.market_data:get_vix:58 - VIX actual: 24.17
+2026-04-07 01:25:41.295 | INFO     | cortex.market_data:get_regime_indicators:127 - Indicadores: {'vix': 24.17, 'momentum_21d_pct': -3.02, 'vol_realized_pct': 18.41, 'drawdown_90d_pct': -5.0, 'spy_price': 658.93, 'regime': 'INDETERMINATE', 'timestamp': '2026-04-07T01:25:41.295951'}
+2026-04-07 01:25:41.837 | INFO     | cortex.layers.rho:__init__:107 - Capa Rho inicializada
+2026-04-07 01:25:41.838 | INFO     | cortex.layers.rho:save_checkpoint:167 - Rho: checkpoint guardado ckpt_20260407_012541 delta=0.6205 estable=False
+
+[CONDICION D] Kappa+Rho sin abstraccion | d_20260407_012540
+  Mercado: VIX=24.17 | Mom=-3.02% | Regimen=INDETERMINATE
+  Phi: DESACTIVADA | Omega: DESACTIVADA | Lambda: DESACTIVADA
+  Mu: DESACTIVADA | Sigma: DESACTIVADA
+  Kappa (raw): delta=0.6205 | decision=BACKTRACK
+  Tau: HOLD_NO_ACTION | tokens=0 (deterministico) | 1035ms
+[CONDICION D] Final: BACKTRACK
+
+D OK: decision=BACKTRACK delta=0.6205
+Codigo D: 0 
+=== TEST ABLACION === 
+2026-04-07 01:25:43.072 | INFO     | cortex.market_data:__init__:35 - MarketData inicializado con Alpaca Paper Trading
+2026-04-07 01:25:43.532 | INFO     | cortex.market_data:get_vix:58 - VIX actual: 24.17
+2026-04-07 01:25:43.532 | INFO     | cortex.market_data:get_regime_indicators:127 - Indicadores: {'vix': 24.17, 'momentum_21d_pct': -3.02, 'vol_realized_pct': 18.41, 'drawdown_90d_pct': -5.0, 'spy_price': 658.93, 'regime': 'INDETERMINATE', 'timestamp': '2026-04-07T01:25:43.532731'}
+2026-04-07 01:25:44.004 | ERROR    | cortex.e2_ablation:run_e2_ablation:64 - Condicion A fallo: 'charmap' codec can't encode character '\u03a6' in position 2: character maps to <undefined>
+2026-04-07 01:25:44.009 | INFO     | cortex.market_data:__init__:35 - MarketData inicializado con Alpaca Paper Trading
+2026-04-07 01:25:44.062 | INFO     | cortex.market_data:get_vix:58 - VIX actual: 24.17
+2026-04-07 01:25:44.062 | INFO     | cortex.market_data:get_regime_indicators:127 - Indicadores: {'vix': 24.17, 'momentum_21d_pct': -3.02, 'vol_realized_pct': 18.41, 'drawdown_90d_pct': -5.0, 'spy_price': 658.93, 'regime': 'INDETERMINATE', 'timestamp': '2026-04-07T01:25:44.062887'}
+2026-04-07 01:25:48.769 | INFO     | cortex.layers.rho:__init__:107 - Capa Rho inicializada
+2026-04-07 01:25:48.771 | INFO     | cortex.market_data:__init__:35 - MarketData inicializado con Alpaca Paper Trading
+2026-04-07 01:25:48.826 | INFO     | cortex.market_data:get_vix:58 - VIX actual: 24.17
+2026-04-07 01:25:48.826 | INFO     | cortex.market_data:get_regime_indicators:127 - Indicadores: {'vix': 24.17, 'momentum_21d_pct': -3.02, 'vol_realized_pct': 18.41, 'drawdown_90d_pct': -5.0, 'spy_price': 658.93, 'regime': 'INDETERMINATE', 'timestamp': '2026-04-07T01:25:48.826560'}
+2026-04-07 01:25:49.494 | INFO     | cortex.layers.phi:__init__:103 - Capa Phi inicializada: anthropic/claude-sonnet-4-6 (temperature=0.1)
+2026-04-07 01:25:53.714 | INFO     | cortex.layers.phi:_refine_with_llm:209 - Phi LLM: VIX elevado (24.17) con momentum negativo (-3.02%) refuerza tendencia bajista y estrés moderado-alto; la volatilidad realizada (18.41%) justifica Z3 contenido; coherencia negativa se mantiene dominante dado régimen indeterminado; se suaviza complejidad ligeramente al no haber señal direccional clara que amplifique dispersión factorial.
+2026-04-07 01:25:53.715 | INFO     | cortex.layers.phi:factorize:111 - Phi: regimen=INDETERMINATE, confianza=0.45, var=0.2257
+2026-04-07 01:25:53.884 | INFO     | cortex.layers.kappa:__init__:91 - Capa Kappa inicializada: anthropic/claude-haiku-4-5
+2026-04-07 01:25:58.440 | INFO     | cortex.layers.kappa:evaluate:137 - Kappa: delta=0.5955 decision=HOLD_CASH positions=False backtrack=False
+2026-04-07 01:25:58.612 | INFO     | cortex.layers.omega:__init__:159 - Capa Omega inicializada: anthropic/claude-opus-4-6
+2026-04-07 01:25:58.612 | INFO     | cortex.layers.omega:generate_hypothesis:170 - Omega similitudes: lorenz_attractor=0.9610 (umbral=OK)
+2026-04-07 01:26:13.687 | DEBUG    | cortex.layers.omega:_generate_with_opus:293 - Opus raw response: {"reasoning": "El estado actual del mercado es isomorfo al atractor de Lorenz porque comparte su firma de alta complejidad (Z8=+0.850 vs ref +0.9), causalidad fuertemente negativa (Z4=-0.680 vs ref -0.75) y dinámica positiva coexistiendo con tendencia negativa (Z2=+0.342, Z1=-0.420), lo cual replica
+2026-04-07 01:26:13.688 | INFO     | cortex.layers.omega:_generate_with_opus:303 - Omega Opus: El estado actual del mercado es isomorfo al atractor de Lorenz porque comparte su firma de alta complejidad (Z8=+0.850 v...
+2026-04-07 01:26:13.688 | WARNING  | cortex.layers.omega:_generate_with_opus:305 - Omega riesgo: Riesgo principal de confabulación: la analogía Lorenz sugiere impredecibilidad intrínseca, pero el mercado real tiene fricciones, intervenciones de política monetaria y liquidez institucional que pueden suprimir bifurcaciones caóticas; además, la proximidad con phase_transition (0.9524) indica que el isomorfo no es unívoco y el sistema podría estar transitando entre regímenes más que atrapado en caos estacionario.
+2026-04-07 01:26:13.694 | INFO     | cortex.layers.rho:__init__:107 - Capa Rho inicializada
+2026-04-07 01:26:13.695 | INFO     | cortex.market_data:__init__:35 - MarketData inicializado con Alpaca Paper Trading
+2026-04-07 01:26:13.884 | INFO     | cortex.market_data:get_vix:58 - VIX actual: 24.17
+2026-04-07 01:26:13.884 | INFO     | cortex.market_data:get_regime_indicators:127 - Indicadores: {'vix': 24.17, 'momentum_21d_pct': -3.02, 'vol_realized_pct': 18.41, 'drawdown_90d_pct': -5.0, 'spy_price': 658.93, 'regime': 'INDETERMINATE', 'timestamp': '2026-04-07T01:26:13.884942'}
+2026-04-07 01:26:14.425 | INFO     | cortex.layers.rho:__init__:107 - Capa Rho inicializada
+2026-04-07 01:26:14.426 | INFO     | cortex.layers.rho:save_checkpoint:167 - Rho: checkpoint guardado ckpt_20260407_012614 delta=0.6205 estable=False
+
+======================================================================
+  CORTEX V2 — E2 Ablacion
+  Condiciones: ['A', 'B', 'C', 'D']
+  OSF: https://osf.io/wdkcx
+  Fecha: 2026-04-07 01:25
+======================================================================
+
+
+============================================================
+  CORTEX V2 — Pipeline completo (10 capas)
+  Sesion: a_20260407_012542
+============================================================
+
+Mercado: VIX=24.17 | Momentum=-3.02% | Regimen=INDETERMINATE
+Portfolio: $99,990.77
+
+
+[CONDICION B] LLM base sin Cortex | b_20260407_012542
+  Mercado: VIX=24.17 | Mom=-3.02% | Regimen=INDETERMINATE
+  Decision=HOLD | confidence=0.5200 | tokens=396 | 4016ms
+  Reasoning: Mixed signals warrant caution: VIX at 24.17 indicates moderate fear, momentum is
+[CONDICION B] Final: HOLD
+
+
+[CONDICION C] Phi+Omega+Kappa sin infraestructura | c_20260407_012542
+  Mercado: VIX=24.17 | Mom=-3.02% | Regimen=INDETERMINATE
+  Phi: regime=INDETERMINATE | delta=0.5955
+  Omega: lorenz_attractor (sim=0.9610) -> CASH
+  Lambda: DESACTIVADA | Mu: DESACTIVADA | Sigma: DESACTIVADA
+  Tau: HOLD_NO_ACTION | 24923ms
+[CONDICION C] Final: HOLD_CASH
+
+
+[CONDICION D] Kappa+Rho sin abstraccion | d_20260407_012542
+  Mercado: VIX=24.17 | Mom=-3.02% | Regimen=INDETERMINATE
+  Phi: DESACTIVADA | Omega: DESACTIVADA | Lambda: DESACTIVADA
+  Mu: DESACTIVADA | Sigma: DESACTIVADA
+  Kappa (raw): delta=0.6205 | decision=BACKTRACK
+  Tau: HOLD_NO_ACTION | tokens=0 (deterministico) | 731ms
+[CONDICION D] Final: BACKTRACK
+
+
+======================================================================
+  RESUMEN COMPARATIVO E2
+======================================================================
+  Cond   Decision         Confidence   Tokens       Ms  Extra
+  -----------------------------------------------------------------
+  A      ERROR: 'charmap' codec can't encode character '\u03a6' in
+  B      HOLD                 0.5200      396     4016ms  Mixed signals warrant caution: VIX at 24
+  C      HOLD_CASH            0.5955     2200    24923ms  iso=lorenz_attractor Lambda=OFF
+  D      BACKTRACK            0.6205        0      731ms  deterministico (0 tokens)
+
+  H1 tokens A/B = 1/396 = 0.003 (umbral <=0.45): PASS
+
+  Log: logs\e2_ablation_20260407.jsonl | Tiempo total: 32366ms
+======================================================================
+
+
+ERROR en condiciones: ['A']
+Codigo ablacion: 1 
+ 
+FIN 
