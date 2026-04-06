@@ -1,6 +1,6 @@
-# Cortex V2 — Heartbeat diario E2
+# Cortex V2 — Heartbeat diario E2 con ablacion completa
 # Pre-registro OSF: https://osf.io/wdkcx
-# Cron: 09:00 UTC lunes-viernes
+# Condiciones: A (Cortex completo) B (LLM base) C (Phi+Omega+Kappa) D (Kappa+Rho)
 
 name: cortex-heartbeat
 
@@ -8,22 +8,25 @@ on:
   schedule:
     - cron: '0 9 * * 1-5'
   workflow_dispatch:
+    inputs:
+      conditions:
+        description: 'Condiciones (A,B,C,D)'
+        required: false
+        default: 'A,B,C,D'
 
-# FIX 403: GITHUB_TOKEN necesita permiso de escritura explícito
 permissions:
   contents: write
 
 jobs:
   heartbeat:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
 
     steps:
-      - name: Checkout repositorio
+      - name: Checkout
         uses: actions/checkout@v4
-        # No usar persist-credentials: false — necesitamos el token por defecto
 
-      - name: Configurar Python 3.11
+      - name: Python 3.11
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
@@ -34,11 +37,9 @@ jobs:
 
       - name: Verificar secrets
         run: |
-          echo "Verificando secrets..."
           [ -z "$OPENROUTER_API_KEY" ] && echo "FALTA OPENROUTER_API_KEY" && exit 1
           [ -z "$ALPACA_API_KEY" ]     && echo "FALTA ALPACA_API_KEY" && exit 1
-          echo "Secrets: OK"
-          echo "OpenRouter: ${OPENROUTER_API_KEY:0:8}..."
+          echo "Secrets: OK | OpenRouter: ${OPENROUTER_API_KEY:0:8}..."
         env:
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
           ALPACA_API_KEY:     ${{ secrets.ALPACA_API_KEY }}
@@ -46,7 +47,7 @@ jobs:
       - name: Crear directorios
         run: mkdir -p logs data/memory data/checkpoints
 
-      - name: Ejecutar pipeline Cortex V2
+      - name: Ejecutar E2 ablacion
         env:
           ALPACA_API_KEY:      ${{ secrets.ALPACA_API_KEY }}
           ALPACA_SECRET_KEY:   ${{ secrets.ALPACA_SECRET_KEY }}
@@ -58,26 +59,37 @@ jobs:
           MODEL_KAPPA:  anthropic/claude-haiku-4-5
           MODEL_XI:     anthropic/claude-haiku-4-5
           MODEL_SIGMA:  anthropic/claude-sonnet-4-6
-        run: python -m cortex.pipeline
+        run: |
+          CONDITIONS="${{ github.event.inputs.conditions || 'A,B,C,D' }}"
+          python -c "
+conditions = [c.strip() for c in '$CONDITIONS'.split(',') if c.strip()]
+print(f'Condiciones: {conditions}')
+from cortex.e2_ablation import run_e2_ablation
+results = run_e2_ablation(conditions)
+errors = [c for c,r in results.items() if 'error' in r]
+if errors:
+    print(f'ADVERTENCIA condiciones con error: {errors}')
+print('E2 ablacion OK')
+"
 
-      - name: Publicar logs en GitHub
+      - name: Publicar logs
         run: |
           git config user.name  "cortex-bot"
           git config user.email "cortex-bot@users.noreply.github.com"
           git add logs/ || true
           if git diff --staged --quiet; then
-            echo "Sin cambios — nada que publicar"
+            echo "Sin cambios"
           else
             DATE=$(date +%Y-%m-%d)
-            DELTA=$(python3 -c "
-import json, glob, sys
-files = sorted(glob.glob('logs/cortex_*.jsonl'))
-if not files: sys.exit(0)
-lines = [l for l in open(files[-1]) if l.strip()]
-if lines:
-    d = json.loads(lines[-1])
-    print(f\"delta={d.get('delta','?')} regime={d.get('regime','?')} signal={d.get('signal','?')}\")" 2>/dev/null || echo "")
-            git commit -m "obs: heartbeat $DATE | $DELTA"
+            SUMMARY=$(python3 -c "
+import json, glob
+files = sorted(glob.glob('logs/e2_ablation_*.jsonl'))
+if not files: exit(0)
+parts = []
+for l in open(files[-1]):
+    d = json.loads(l.strip())
+    parts.append(f\"{d.get('condition','?')}:{d.get('decision','?')}({d.get('confidence',d.get('delta',0)):.3f})\")
+print(' | '.join(parts))" 2>/dev/null || echo "")
+            git commit -m "obs: E2 $DATE | $SUMMARY"
             git push
-            echo "Publicado: $DATE"
           fi
