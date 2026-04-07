@@ -32,7 +32,9 @@ def _call_llm_baseline(indicators: dict, portfolio_value: float,
     """Una sola llamada a Claude Sonnet con contexto bruto."""
     client = OpenAI(
         api_key=config.OPENROUTER_API_KEY,
-        base_url=config.OPENROUTER_BASE_URL
+        base_url=config.OPENROUTER_BASE_URL,
+        timeout=config.OPENROUTER_TIMEOUT_SECONDS,
+        max_retries=config.OPENROUTER_MAX_RETRIES,
     )
     drawdown_pct = (portfolio_value - initial_value) / initial_value * 100
 

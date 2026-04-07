@@ -83,11 +83,16 @@ class PhiLayer:
     def __init__(self, temperature: float = 0.1):
         self.client = OpenAI(
             api_key=config.OPENROUTER_API_KEY,
-            base_url=config.OPENROUTER_BASE_URL
+            base_url=config.OPENROUTER_BASE_URL,
+            timeout=config.OPENROUTER_TIMEOUT_SECONDS,
+            max_retries=config.OPENROUTER_MAX_RETRIES,
         )
         self.model       = config.MODEL_PHI
         self.temperature = temperature
-        logger.info(f"Capa Phi inicializada: {self.model} (temperature={temperature})")
+        logger.info(
+            f"Capa Phi inicializada: {self.model} "
+            f"(temperature={temperature}, timeout={config.OPENROUTER_TIMEOUT_SECONDS}s)"
+        )
 
     def factorize(self, indicators: dict) -> PhiState:
         base      = self._factorize_deterministic(indicators)

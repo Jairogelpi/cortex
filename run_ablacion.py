@@ -1,4 +1,4 @@
-"""Script principal de ablacion E2."""
+"""Script principal de ablacion E2 — usa tokens REALES de A."""
 from cortex.e2_ablation import run_e2_ablation
 results = run_e2_ablation(["A", "B", "C", "D"])
 errors = [c for c, r in results.items() if "error" in r]

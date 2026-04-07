@@ -2,12 +2,12 @@
 E2 ABLATION RUNNER — Orquestador de las 4 condiciones paralelas
 Experimento E2 | OSF: https://osf.io/wdkcx
 
-NOTA IMPORTANTE SOBRE EL LOG:
-  Cada dia debe tener EXACTAMENTE 4 lineas en e2_ablation_YYYYMMDD.jsonl
-  (una por condicion: A, B, C, D).
-  Si se ejecuta el script varias veces el mismo dia (tests, depuracion),
-  solo se conserva el ULTIMO run de cada condicion.
-  Esto evita contaminar el analisis con datos de prueba.
+Condicion A: tokens_total son REALES via token_tracker (phi+kappa+omega+lambda)
+Condicion B: tokens_total son REALES via usage de OpenAI response
+Condicion C: tokens_total son ESTIMADOS (phi+kappa+omega sin medicion exacta)
+Condicion D: tokens_total = 0 (deterministico, sin LLM)
+
+Log: logs/e2_ablation_YYYYMMDD.jsonl — EXACTAMENTE 1 linea por condicion por dia.
 """
 import json
 import time
@@ -22,36 +22,25 @@ INITIAL_VALUE = 100_000.0
 
 
 def _save_results(log_path: Path, results: dict, total_ms: int):
-    """
-    Guarda resultados en el log diario.
-    Si ya existe una entrada para esa condicion hoy, la sobreescribe.
-    Garantiza exactamente 1 linea por condicion por dia.
-    """
-    # Leer entradas existentes del dia
+    """1 linea por condicion por dia — sobreescribe si ya existe."""
     existing = {}
     if log_path.exists():
         for line in log_path.read_text(encoding="utf-8").splitlines():
             if line.strip():
                 try:
                     r = json.loads(line)
-                    cond = r.get("condition")
-                    if cond and "error" not in r:
-                        existing[cond] = r  # sobreescribe anterior del mismo dia
+                    if "condition" in r and "error" not in r:
+                        existing[r["condition"]] = r
                 except Exception:
                     pass
-
-    # Actualizar con los nuevos resultados
     for cond, res in results.items():
         if "error" not in res:
             res["total_ms"] = total_ms
             existing[cond] = res
-
-    # Escribir en orden A, B, C, D
     with open(log_path, "w", encoding="utf-8") as f:
         for cond in ["A", "B", "C", "D"]:
             if cond in existing:
-                f.write(json.dumps(existing[cond],
-                                   default=str, ensure_ascii=False) + "\n")
+                f.write(json.dumps(existing[cond], default=str, ensure_ascii=False) + "\n")
 
 
 def run_e2_ablation(conditions: list = None) -> dict:
@@ -73,7 +62,7 @@ def run_e2_ablation(conditions: list = None) -> dict:
     results  = {}
     t_global = time.time()
 
-    # CONDICION A — Cortex V2 completo
+    # CONDICION A — Cortex V2 completo con tokens REALES
     if "A" in conditions:
         try:
             from cortex.pipeline import run_pipeline
@@ -90,62 +79,51 @@ def run_e2_ablation(conditions: list = None) -> dict:
                 "lambda_verdict":  res_a.get("lambda_verdict", ""),
                 "stop_loss":       res_a["stop_loss"],
                 "portfolio_value": res_a["portfolio_value"],
-                # Tokens estimados: Phi(~800)+Kappa(~200)+Omega(~1200)+Lambda(~600)
-                # H1 requiere medicion real — esto es una estimacion conservadora
-                "tokens_total":    2800,
+                "tokens_total":    res_a["tokens_total"],    # REAL via token_tracker
+                "tokens_by_layer": res_a.get("tokens_by_layer", {}),
             }
         except Exception as e:
             logger.error(f"Condicion A fallo: {e}")
-            results["A"] = {"condition": "A", "error": str(e),
-                            "date": datetime.now().strftime("%Y-%m-%d")}
+            results["A"] = {"condition":"A","error":str(e),"date":datetime.now().strftime("%Y-%m-%d")}
 
-    # CONDICION B — LLM base sin Cortex
+    # CONDICION B — LLM base (tokens REALES via usage de la API)
     if "B" in conditions:
         try:
             from cortex.pipeline_b import run_pipeline_b
-            results["B"] = run_pipeline_b(
-                session_id=f"b_{session_ts}", initial_value=INITIAL_VALUE)
+            results["B"] = run_pipeline_b(session_id=f"b_{session_ts}", initial_value=INITIAL_VALUE)
         except Exception as e:
             logger.error(f"Condicion B fallo: {e}")
-            results["B"] = {"condition": "B", "error": str(e),
-                            "date": datetime.now().strftime("%Y-%m-%d")}
+            results["B"] = {"condition":"B","error":str(e),"date":datetime.now().strftime("%Y-%m-%d")}
 
-    # CONDICION C — Phi+Omega+Kappa sin infraestructura
+    # CONDICION C — Phi+Omega+Kappa (tokens estimados — sin tracker en C por ahora)
     if "C" in conditions:
         try:
             from cortex.pipeline_c import run_pipeline_c
-            results["C"] = run_pipeline_c(
-                session_id=f"c_{session_ts}", initial_value=INITIAL_VALUE)
+            results["C"] = run_pipeline_c(session_id=f"c_{session_ts}", initial_value=INITIAL_VALUE)
         except Exception as e:
             logger.error(f"Condicion C fallo: {e}")
-            results["C"] = {"condition": "C", "error": str(e),
-                            "date": datetime.now().strftime("%Y-%m-%d")}
+            results["C"] = {"condition":"C","error":str(e),"date":datetime.now().strftime("%Y-%m-%d")}
 
-    # CONDICION D — Solo Kappa+Rho
+    # CONDICION D — Solo Kappa+Rho (0 tokens LLM — deterministico)
     if "D" in conditions:
         try:
             from cortex.pipeline_d import run_pipeline_d
-            results["D"] = run_pipeline_d(
-                session_id=f"d_{session_ts}", initial_value=INITIAL_VALUE)
+            results["D"] = run_pipeline_d(session_id=f"d_{session_ts}", initial_value=INITIAL_VALUE)
         except Exception as e:
             logger.error(f"Condicion D fallo: {e}")
-            results["D"] = {"condition": "D", "error": str(e),
-                            "date": datetime.now().strftime("%Y-%m-%d")}
+            results["D"] = {"condition":"D","error":str(e),"date":datetime.now().strftime("%Y-%m-%d")}
 
     total_ms = round((time.time() - t_global) * 1000)
-
-    # Guardar — 1 linea por condicion por dia
     _save_results(log_path, results, total_ms)
 
-    # Resumen consola
+    # Resumen
     print("\n" + "="*70)
     print("  RESUMEN E2 - " + datetime.now().strftime("%Y-%m-%d"))
     print("="*70)
-    print(f"  {'Cond':<6} {'Decision':<14} {'delta':>8} "
-          f"{'Tokens':>8} {'Ms':>8}  Info")
+    print(f"  {'Cond':<6} {'Decision':<14} {'delta':>8} {'Tokens':>8} {'Ms':>8}  Info")
     print("  " + "-"*65)
 
-    for cond in ["A", "B", "C", "D"]:
+    for cond in ["A","B","C","D"]:
         if cond not in results:
             continue
         r = results[cond]
@@ -155,27 +133,30 @@ def run_e2_ablation(conditions: list = None) -> dict:
         conf = r.get("confidence", r.get("delta", 0))
         tok  = r.get("tokens_total", 0)
         lat  = r.get("latency_ms", 0) or total_ms
-        dec  = r.get("decision", "?")
+        dec  = r.get("decision","?")
         info = {
-            "A": f"Lambda={r.get('lambda_verdict','?')} iso={r.get('isomorph','?')}",
-            "B": r.get("reasoning","")[:45],
-            "C": f"iso={r.get('isomorph','?')} Lambda=OFF",
+            "A": f"Lambda={r.get('lambda_verdict','?')} iso={r.get('isomorph','?')} tokens=REAL",
+            "B": r.get("reasoning","")[:40] + " [tokens=REAL]",
+            "C": f"iso={r.get('isomorph','?')} Lambda=OFF [tokens=estimado]",
             "D": "deterministico 0 tokens LLM",
-        }.get(cond, "")
-        print(f"  {cond:<6} {dec:<14} {conf:>8.4f} "
-              f"{tok:>8} {lat:>8}ms  {info}")
+        }.get(cond,"")
+        print(f"  {cond:<6} {dec:<14} {conf:>8.4f} {tok:>8} {lat:>8}ms  {info}")
 
-    tok_a = results.get("A", {}).get("tokens_total", 0)
-    tok_b = results.get("B", {}).get("tokens_total", 0)
+    tok_a = results.get("A",{}).get("tokens_total",0)
+    tok_b = results.get("B",{}).get("tokens_total",0)
     if tok_a and tok_b:
         ratio  = tok_a / tok_b
-        status = "PASS" if ratio <= 0.45 else "FAIL"
-        print(f"\n  H1 A={tok_a} / B={tok_b} = {ratio:.3f} (<=0.45): {status}")
+        status = "PASS" if ratio <= 0.45 else ("MARGINAL" if ratio <= 1.0 else "FAIL")
+        print(f"\n  H1 (tokens reales) A={tok_a} / B={tok_b} = {ratio:.3f} (umbral <=0.45): {status}")
         if status == "FAIL":
-            print(f"  ADVERTENCIA: A usa {ratio:.1f}x mas tokens que B.")
-            print(f"  A necesita {int(tok_b*0.45)} tokens o menos para cumplir H1.")
+            print(f"  A usa {ratio:.1f}x mas tokens que B.")
+            print(f"  Para PASS: A necesita <= {int(tok_b*0.45)} tokens.")
+            # Detalle por capa de A
+            by_layer = results.get("A",{}).get("tokens_by_layer",{})
+            if by_layer:
+                print(f"  Desglose A: {by_layer}")
 
-    errors = [c for c, r in results.items() if "error" in r]
+    errors = [c for c,r in results.items() if "error" in r]
     if errors:
         print(f"\n  ERRORES: {errors}")
 

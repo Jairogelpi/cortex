@@ -115,10 +115,15 @@ class OmegaLayer:
     def __init__(self):
         self.client = OpenAI(
             api_key=config.OPENROUTER_API_KEY,
-            base_url=config.OPENROUTER_BASE_URL
+            base_url=config.OPENROUTER_BASE_URL,
+            timeout=config.OPENROUTER_TIMEOUT_SECONDS,
+            max_retries=config.OPENROUTER_MAX_RETRIES,
         )
         self.model = config.MODEL_OMEGA
-        logger.info(f"Capa Omega inicializada: {self.model}")
+        logger.info(
+            f"Capa Omega inicializada: {self.model} "
+            f"(timeout={config.OPENROUTER_TIMEOUT_SECONDS}s)"
+        )
 
     def generate_hypothesis(self, phi_state: PhiState) -> OmegaHypothesis:
         z_market    = phi_state.to_vector()

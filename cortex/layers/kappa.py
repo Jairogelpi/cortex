@@ -54,10 +54,15 @@ class KappaLayer:
     def __init__(self):
         self.client = OpenAI(
             api_key=config.OPENROUTER_API_KEY,
-            base_url=config.OPENROUTER_BASE_URL
+            base_url=config.OPENROUTER_BASE_URL,
+            timeout=config.OPENROUTER_TIMEOUT_SECONDS,
+            max_retries=config.OPENROUTER_MAX_RETRIES,
         )
         self.model = config.MODEL_KAPPA
-        logger.info(f"Capa Kappa inicializada: {self.model}")
+        logger.info(
+            f"Capa Kappa inicializada: {self.model} "
+            f"(timeout={config.OPENROUTER_TIMEOUT_SECONDS}s)"
+        )
 
     def evaluate(self, phi_state, portfolio_value, initial_value=100_000.0,
                  spy_benchmark_return=0.0, open_positions=None):
