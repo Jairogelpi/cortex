@@ -1,15 +1,14 @@
 """
-CAPA OMEGA - Motor de hipotesis cross-domain
+CAPA OMEGA - Motor de hipotesis cross-domain — VERSION OPTIMIZADA H1
 Cortex V2, Fase 3
 
-Fundamentado en Bellmund et al. (Nature Neuroscience 2025).
-Omega: (Z1 x ... x Z8)^n -> Z_nuevo donde Sim >= 0.65
-
-Los 5 isomorfos fisicos:
-    gas_expansion, compressed_gas, phase_transition,
-    overdamped_system, lorenz_attractor
-
-Modelo: Claude Opus 4.6 (UNA sola llamada por sesion).
+OPTIMIZACION H1:
+  Prompt comprimido: eliminados campos redundantes (Z referencia,
+  descripcion larga, analogia). Omega ya sabe el isomorfo por similitud
+  coseno — el LLM solo necesita confirmar con 1 frase.
+  max_tokens: 500 -> 60 (solo 1 frase de razonamiento + confidence_adj)
+  Sin campo risk_note — ya esta en el log de warning de similitudes.
+  Estimacion ahorro: 722 -> ~250 tokens.
 """
 import json
 import re
@@ -21,7 +20,7 @@ from loguru import logger
 
 from cortex.config import config
 from cortex.layers.phi import PhiState
-from cortex.token_tracker import token_tracker  # H1: medicion real de tokens
+from cortex.token_tracker import token_tracker
 
 PHYSICAL_ISOMORPHS = {
     "gas_expansion": {
@@ -95,17 +94,11 @@ class OmegaHypothesis:
 
     def summary(self) -> str:
         lines = [
-            f"Omega Hypothesis | Isomorfo: {self.best_isomorph} | Sim={self.similarity:.4f}",
-            f"  Umbral 0.65: {self.threshold_met} | Senal: {self.trading_signal}",
-            f"  Instrumentos: {self.instruments if self.instruments else 'ninguno (CASH)'}",
-            f"  Asignacion: {self.allocation_pct*100:.0f}% | Confianza: {self.confidence:.4f}",
-            "",
-            "  Similitudes:",
+            f"Omega | {self.best_isomorph} Sim={self.similarity:.4f} -> {self.trading_signal}",
+            "  Sims: " + " ".join(f"{n[:8]}={s:.3f}" for n,s in
+                sorted(self.all_similarities.items(), key=lambda x:-x[1])),
+            f"  {self.llm_reasoning}",
         ]
-        for name, sim in sorted(self.all_similarities.items(), key=lambda x: -x[1]):
-            marker = " <- ELEGIDO" if name == self.best_isomorph else ""
-            lines.append(f"    {name:<25} {sim:.4f}{marker}")
-        lines.append(f"\n  Razonamiento: {self.llm_reasoning}")
         return "\n".join(lines)
 
 
@@ -120,17 +113,14 @@ class OmegaLayer:
             max_retries=config.OPENROUTER_MAX_RETRIES,
         )
         self.model = config.MODEL_OMEGA
-        logger.info(
-            f"Capa Omega inicializada: {self.model} "
-            f"(timeout={config.OPENROUTER_TIMEOUT_SECONDS}s)"
-        )
+        logger.info(f"Capa Omega inicializada: {self.model}")
 
     def generate_hypothesis(self, phi_state: PhiState) -> OmegaHypothesis:
-        z_market    = phi_state.to_vector()
+        z_market     = phi_state.to_vector()
         similarities = self._calc_similarities(z_market)
-        best_name   = max(similarities, key=similarities.get)
-        best_sim    = similarities[best_name]
-        threshold   = best_sim >= self.SIM_THRESHOLD
+        best_name    = max(similarities, key=similarities.get)
+        best_sim     = similarities[best_name]
+        threshold    = best_sim >= self.SIM_THRESHOLD
 
         logger.info(f"Omega similitudes: {best_name}={best_sim:.4f} (umbral={'OK' if threshold else 'NO'})")
 
@@ -144,79 +134,45 @@ class OmegaLayer:
             return {n: 0.0 for n in PHYSICAL_ISOMORPHS}
         sims = {}
         for name, iso in PHYSICAL_ISOMORPHS.items():
-            z_ref   = iso["Z"]
-            norm_r  = np.linalg.norm(z_ref)
-            cosine  = float(np.dot(z_market, z_ref) / (norm_m * norm_r)) if norm_r else 0.0
-            sims[name] = round((cosine + 1.0) / 2.0, 4)
+            z_ref  = iso["Z"]
+            norm_r = np.linalg.norm(z_ref)
+            cos    = float(np.dot(z_market, z_ref)/(norm_m*norm_r)) if norm_r else 0.0
+            sims[name] = round((cos+1.0)/2.0, 4)
         return sims
-
-    def _extract_json(self, text: str) -> dict:
-        text = text.replace("```json","").replace("```","").strip()
-        try:
-            return json.loads(text)
-        except json.JSONDecodeError:
-            pass
-        s, e = text.find("{"), text.rfind("}")
-        if s != -1 and e > s:
-            try:
-                return json.loads(text[s:e+1])
-            except json.JSONDecodeError:
-                pass
-        m = re.search(r'"reasoning"\s*:\s*"(.*?)"(?=\s*[,}])', text, re.DOTALL)
-        if m:
-            cm = re.search(r'"confidence_adjustment"\s*:\s*([-\d.]+)', text)
-            rm = re.search(r'"risk_note"\s*:\s*"(.*?)"(?=\s*[,}])', text, re.DOTALL)
-            return {
-                "reasoning": m.group(1),
-                "confidence_adjustment": float(cm.group(1)) if cm else 0.0,
-                "risk_note": rm.group(1) if rm else ""
-            }
-        raise ValueError(f"No se pudo extraer JSON: {text[:200]}")
 
     def _generate_with_opus(self, phi_state, z_market, best_name, best_sim, similarities):
         iso = PHYSICAL_ISOMORPHS[best_name]
         ind = phi_state.raw_indicators
 
-        prompt = f"""Eres la capa Omega de Cortex V2 (Bellmund et al. NatNeurosci 2025).
-
-ESTADO DEL MERCADO (vector Z):
-Z1={z_market[0]:+.3f} Z2={z_market[1]:+.3f} Z3={z_market[2]:+.3f} Z4={z_market[3]:+.3f}
-Z5={z_market[4]:+.3f} Z6={z_market[5]:+.3f} Z7={z_market[6]:+.3f} Z8={z_market[7]:+.3f}
-VIX={ind.get('vix')} | Mom21d={ind.get('momentum_21d_pct')}% | Regimen={phi_state.regime}
-
-ISOMORFO MEJOR (Sim={best_sim:.4f}): {best_name}
-Descripcion: {iso['description']}
-Z referencia: {iso['Z'].tolist()}
-
-Similitudes: {', '.join(f'{n}={s:.3f}' for n,s in sorted(similarities.items(), key=lambda x: -x[1]))}
-
-Explica en 2-3 frases por que el mercado es isomorfo a {best_name}.
-Responde SOLO JSON:
-{{"reasoning":"2-3 frases","confidence_adjustment":0.0,"risk_note":"riesgo de confabulacion"}}"""
-
+        # PROMPT ULTRACOMPACTO: solo los datos que Opus necesita para confirmar
+        # Eliminado: Z referencia (Opus lo sabe), descripcion larga, risk_note
+        # El campo reasoning es 1 frase, no 2-3
+        prompt = (
+            f"Omega Cortex V2. Isomorfo={best_name} Sim={best_sim:.3f}. "
+            f"Z=[{','.join(f'{v:+.2f}' for v in z_market)}] "
+            f"VIX={ind.get('vix')} Mom={ind.get('momentum_21d_pct')}% Reg={phi_state.regime}\n"
+            f"2do mejor: {sorted(similarities.items(),key=lambda x:-x[1])[1][0]}="
+            f"{sorted(similarities.items(),key=lambda x:-x[1])[1][1]:.3f}\n"
+            f'Solo JSON: {{"r":"1 frase por que isomorfo correcto","c":0.0}}'
+        )
         try:
             resp = self.client.chat.completions.create(
                 model=self.model,
                 messages=[{"role": "user", "content": prompt}],
-                max_tokens=500,
+                max_tokens=60,   # OPTIMIZACION: 500 -> 60 (1 frase + c float)
                 temperature=0.1
             )
-            # H1: registrar tokens reales de Omega (llamada mas costosa — Opus)
             token_tracker.add("omega", resp.usage.prompt_tokens, resp.usage.completion_tokens)
 
-            raw  = resp.choices[0].message.content
-            logger.debug(f"Opus raw response: {raw[:300]}")
-            data = self._extract_json(raw)
+            raw  = resp.choices[0].message.content.strip().replace("```json","").replace("```","")
+            s,e  = raw.find("{"), raw.rfind("}")
+            data = json.loads(raw[s:e+1]) if s!=-1 else {}
 
-            reasoning      = data.get("reasoning", "Sin razonamiento")
-            confidence_adj = float(data.get("confidence_adjustment", 0.0))
-            risk_note      = data.get("risk_note", "")
-            confidence     = max(0.0, min(1.0, best_sim + confidence_adj))
+            reasoning = data.get("r", data.get("reasoning", best_name))
+            conf_adj  = float(data.get("c", data.get("confidence_adjustment", 0.0)))
+            confidence = max(0.0, min(1.0, best_sim + conf_adj))
 
-            logger.info(f"Omega Opus: {reasoning[:120]}...")
-            if risk_note:
-                logger.warning(f"Omega riesgo: {risk_note}")
-
+            logger.info(f"Omega Opus: {reasoning[:80]}")
             return OmegaHypothesis(
                 best_isomorph=best_name, similarity=best_sim,
                 threshold_met=True,
@@ -226,13 +182,13 @@ Responde SOLO JSON:
                 physical_description=iso["description"],
                 market_analog=iso["market_analog"],
                 all_similarities=similarities,
-                llm_reasoning=reasoning + (f" | RIESGO: {risk_note}" if risk_note else ""),
+                llm_reasoning=reasoning,
                 confidence=confidence,
                 timestamp=datetime.now().isoformat(),
                 z_market=z_market.tolist()
             )
         except Exception as e:
-            logger.warning(f"Omega Opus fallback: {e}")
+            logger.warning(f"Omega fallback: {e}")
             return OmegaHypothesis(
                 best_isomorph=best_name, similarity=best_sim,
                 threshold_met=True,
@@ -242,37 +198,30 @@ Responde SOLO JSON:
                 physical_description=iso["description"],
                 market_analog=iso["market_analog"],
                 all_similarities=similarities,
-                llm_reasoning=f"Fallback determinista ({str(e)[:60]}). Sim={best_sim:.4f}.",
-                confidence=round(best_sim * 0.8, 4),
+                llm_reasoning=f"Sim={best_sim:.4f} (fallback)",
+                confidence=round(best_sim*0.8, 4),
                 timestamp=datetime.now().isoformat(),
                 z_market=z_market.tolist()
             )
 
     def _defensive_hypothesis(self, phi_state, z_market, best_name, best_sim, similarities):
-        logger.warning(f"Omega: ningun isomorfo >= 0.65. Mejor: {best_name}={best_sim:.4f}. DEFENSIVO.")
+        logger.warning(f"Omega: ningun isomorfo >= {self.SIM_THRESHOLD}. Mejor={best_name}={best_sim:.4f}")
         return OmegaHypothesis(
             best_isomorph=best_name, similarity=best_sim,
-            threshold_met=False,
-            trading_signal="CASH", instruments=[], allocation_pct=0.0,
-            physical_description="Ningun isomorfo con similitud suficiente",
-            market_analog="Regimen sin precedente en los 5 isomorfos",
+            threshold_met=False, trading_signal="CASH",
+            instruments=[], allocation_pct=0.0,
+            physical_description="Ningun isomorfo suficiente",
+            market_analog="Regimen sin precedente",
             all_similarities=similarities,
-            llm_reasoning=f"Ningun isomorfo >= {self.SIM_THRESHOLD}. Modo defensivo (Seccion 6.3).",
+            llm_reasoning=f"Sim<{self.SIM_THRESHOLD}. Modo defensivo.",
             confidence=0.0,
             timestamp=datetime.now().isoformat(),
             z_market=z_market.tolist()
         )
 
-
-def test_omega():
+if __name__ == "__main__":
     from cortex.market_data import MarketData
     from cortex.layers.phi import PhiLayer
-    md    = MarketData()
-    phi   = PhiLayer()
-    omega = OmegaLayer()
-    hyp   = omega.generate_hypothesis(phi.factorize(md.get_regime_indicators()))
+    md = MarketData()
+    hyp = OmegaLayer().generate_hypothesis(PhiLayer().factorize(md.get_regime_indicators()))
     print(hyp.summary())
-    return hyp
-
-if __name__ == "__main__":
-    test_omega()

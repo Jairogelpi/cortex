@@ -1,23 +1,22 @@
 """
-CAPA KAPPA - Critic externo (delta score)
+CAPA KAPPA - Critic externo (delta score) — VERSION OPTIMIZADA H1
 Cortex V2, Fase 2
 
-Fundamentado en Zhou et al. (Nature Neuroscience 2025).
-Formula: delta = 0.4*RetornoNorm + 0.4*(1-DrawdownNorm) + 0.2*RegimenConsistencia
-Umbrales OSF: DELTA_BACKTRACK=0.65 | DELTA_CONSOLIDATE=0.70
+OPTIMIZACION H1: Kappa NO usa LLM.
+El delta es 100% deterministico (formula matematica).
+El "reasoning" se genera con codigo — no con tokens.
+Ahorro: 172 tokens eliminados completamente.
 
-Nota: BACKTRACK solo aplica con posiciones abiertas.
-Con portfolio en cash no hay estado al que volver.
+Justificacion: el reasoning de Kappa nunca influye en la decision.
+La decision depende exclusivamente de delta vs umbrales pre-registrados.
+Un LLM que "explica" una formula matematica no añade valor cientifico.
 """
-import json
 from dataclasses import dataclass
 from datetime import datetime
-from openai import OpenAI
 from loguru import logger
 
 from cortex.config import config
 from cortex.layers.phi import PhiState
-from cortex.token_tracker import token_tracker  # H1: medicion real de tokens
 
 
 @dataclass
@@ -35,16 +34,11 @@ class KappaEvaluation:
     phi_confidence: float
 
     def summary(self) -> str:
-        lines = [
-            f"Kappa Evaluation | delta={self.delta:.4f} | Decision: {self.decision}",
-            f"  Retorno norm:         {self.retorno_norm:.4f}",
-            f"  Drawdown norm:        {self.drawdown_norm:.4f}",
-            f"  Regimen consistencia: {self.regimen_consistencia:.4f}",
-            f"  Delta:  0.4*{self.retorno_norm:.4f} + 0.4*{1-self.drawdown_norm:.4f} + 0.2*{self.regimen_consistencia:.4f} = {self.delta:.4f}",
-            f"  Posiciones: {self.has_open_positions} | Backtrack: {self.backtrack_required} | Consolidar: {self.consolidate_memory}",
-            f"  Reasoning: {self.reasoning}",
-        ]
-        return "\n".join(lines)
+        return (
+            f"Kappa | delta={self.delta:.4f} | {self.decision} | "
+            f"ret={self.retorno_norm:.3f} dd={self.drawdown_norm:.3f} "
+            f"reg={self.regimen_consistencia:.3f} | {self.reasoning}"
+        )
 
 
 class KappaLayer:
@@ -52,17 +46,7 @@ class KappaLayer:
     DELTA_CONSOLIDATE = config.DELTA_CONSOLIDATE
 
     def __init__(self):
-        self.client = OpenAI(
-            api_key=config.OPENROUTER_API_KEY,
-            base_url=config.OPENROUTER_BASE_URL,
-            timeout=config.OPENROUTER_TIMEOUT_SECONDS,
-            max_retries=config.OPENROUTER_MAX_RETRIES,
-        )
-        self.model = config.MODEL_KAPPA
-        logger.info(
-            f"Capa Kappa inicializada: {self.model} "
-            f"(timeout={config.OPENROUTER_TIMEOUT_SECONDS}s)"
-        )
+        logger.info("Capa Kappa inicializada: deterministico (0 tokens LLM)")
 
     def evaluate(self, phi_state, portfolio_value, initial_value=100_000.0,
                  spy_benchmark_return=0.0, open_positions=None):
@@ -79,16 +63,24 @@ class KappaLayer:
         )), 4)
 
         decision, backtrack, consolidate = self._decide(delta, phi_state, has_open)
-        reasoning = self._get_reasoning(delta, decision, phi_state,
-            retorno_norm, drawdown_norm, reg_consist,
-            portfolio_value, initial_value, has_open)
+
+        # Reasoning generado por codigo — 0 tokens LLM
+        reasoning = (
+            f"0.4×{retorno_norm:.3f}+0.4×{1-drawdown_norm:.3f}+0.2×{reg_consist:.3f}"
+            f"={delta:.4f} → {decision}"
+        )
 
         evaluation = KappaEvaluation(
-            delta=delta, retorno_norm=round(retorno_norm,4),
-            drawdown_norm=round(drawdown_norm,4), regimen_consistencia=round(reg_consist,4),
-            decision=decision, backtrack_required=backtrack,
-            consolidate_memory=consolidate, has_open_positions=has_open,
-            reasoning=reasoning, timestamp=datetime.now().isoformat(),
+            delta=delta,
+            retorno_norm=round(retorno_norm, 4),
+            drawdown_norm=round(drawdown_norm, 4),
+            regimen_consistencia=round(reg_consist, 4),
+            decision=decision,
+            backtrack_required=backtrack,
+            consolidate_memory=consolidate,
+            has_open_positions=has_open,
+            reasoning=reasoning,
+            timestamp=datetime.now().isoformat(),
             phi_confidence=phi_state.confidence
         )
         logger.info(f"Kappa: delta={delta:.4f} decision={decision} positions={has_open} backtrack={backtrack}")
@@ -119,28 +111,6 @@ class KappaLayer:
         if delta < self.DELTA_BACKTRACK:
             return "BACKTRACK", True, False
         return "CONTINUE", False, delta >= self.DELTA_CONSOLIDATE
-
-    def _get_reasoning(self, delta, decision, phi_state,
-                       retorno_norm, drawdown_norm, reg_consist,
-                       portfolio_value, initial_value, has_open):
-        retorno_pct = (portfolio_value - initial_value) / initial_value * 100
-        prompt = f"""Eres Kappa, el critic externo de Cortex V2.
-PORTFOLIO: ${portfolio_value:,.0f} ({retorno_pct:+.2f}%) | {'posiciones' if has_open else '100% cash'}
-MERCADO: {phi_state.regime} | VIX={phi_state.raw_indicators.get('vix')} | Mom={phi_state.raw_indicators.get('momentum_21d_pct')}%
-DELTA={delta:.4f} | DECISION={decision}
-Explica en UNA frase tecnica por que. Sin markdown."""
-        try:
-            resp = self.client.chat.completions.create(
-                model=self.model,
-                messages=[{"role": "user", "content": prompt}],
-                max_tokens=120, temperature=0.1
-            )
-            # H1: registrar tokens reales de Kappa
-            token_tracker.add("kappa", resp.usage.prompt_tokens, resp.usage.completion_tokens)
-            return resp.choices[0].message.content.strip()
-        except Exception as e:
-            logger.warning(f"Kappa reasoning fallback: {e}")
-            return f"Delta={delta:.4f}. Decision: {decision}."
 
 
 def test_kappa():
