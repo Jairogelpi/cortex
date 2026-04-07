@@ -6,6 +6,7 @@ from cortex.layers.omega import OmegaLayer
 from cortex.layers.lambda_ import LambdaLayer
 from cortex.layers.sigma import SigmaLayer
 from cortex.config import config
+from cortex.decision_packet import DecisionPacket
 
 def test_sigma():
     print("\n" + "="*55)
@@ -48,6 +49,17 @@ def test_sigma():
     assert orch.decision in ("HOLD", "EXECUTE", "DEFENSIVE", "BACKTRACK"), \
         f"ERROR: decision desconocida: {orch.decision}"
     print(f"  Decision valida: OK ({orch.decision})")
+
+    packet = DecisionPacket(
+        session_id="sigma_test_packet",
+        final_action="ABSTAIN",
+        trade_action="EXECUTE",
+        evidence_coverage=0.25,
+        conflict_score=0.90,
+    )
+    orch_packet = sigma.orchestrate(phi_state, kappa_eval, omega_hyp, lambda_val, decision_packet=packet)
+    assert orch_packet.decision == "HOLD", f"ERROR: packet ABSTAIN no bloqueo la decision ({orch_packet.decision})"
+    print(f"  Packet ABSTAIN fuerza HOLD: OK ({orch_packet.decision})")
 
     assert orch.total_duration_seconds < 1.0, \
         f"ERROR: Sigma tardo {orch.total_duration_seconds:.3f}s (debe ser < 1s, es determinista)"

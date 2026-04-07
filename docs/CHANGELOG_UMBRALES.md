@@ -19,3 +19,12 @@ invalidar el experimento. Cambiar ahora es metodológicamente correcto.
 - H5 pasa de casi no testeable a testeable con datos de E2
 - H4, H7 no se ven afectadas
 - El razonamiento completo está en PROPUESTA_AJUSTE_UMBRALES.md
+
+## Cambios de arquitectura añadidos después del scaffold evidence-first
+
+| Fecha | Cambio | Estado | Nota |
+|-------|--------|--------|------|
+| 7 abril 2026 | Ruta evidence-first en sombra | ✅ | `DecisionPacket`, `MemoryRetriever`, `NoveltyRouter`, `AbstentionPolicy`, `Verifier` y telemetria en Omicron/pipeline. |
+| 7 abril 2026 | Sigma packet-aware | ✅ | `DecisionPacket` puede forzar HOLD en `ABSTAIN` y mantiene pisos de seguridad para `EXECUTE`. |
+| 7 abril 2026 | Contradicciones Lambda deterministas | ✅ | Fallo de LLM ya no deja la lista vacia en casos `CONTRADICTED`. |
+| 7 abril 2026 | Shadow regret telemetry | ✅ | `shadow_regret` y `shadow_agreement` comparan packet vs decision activa y quedan visibles en Omicron. |

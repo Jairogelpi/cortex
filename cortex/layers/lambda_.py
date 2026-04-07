@@ -331,11 +331,14 @@ class LambdaLayer:
             contradictions = data.get("c", data.get("contradictions_found", []))
             if isinstance(contradictions, list):
                 contradictions = [str(x) for x in contradictions if x]
+            if not contradictions and verdict == "CONTRADICTED":
+                contradictions = [f"Z mismatch: {discr}"]
             logger.info(f"Lambda Sonnet: {reasoning[:80]}")
             return reasoning, contradictions
         except Exception as e:
             logger.warning(f"Lambda reasoning fallback: {e}")
-            return f"Sim={sim_adj:.4f} {verdict}. Discrepancias: {discr}.", []
+            fallback_contradictions = [f"Z mismatch: {discr}"] if verdict == "CONTRADICTED" else []
+            return f"Sim={sim_adj:.4f} {verdict}. Discrepancias: {discr}.", fallback_contradictions
 
     def _failure_protocol(self, hypothesis, phi_state, start_time):
         return LambdaValidation(

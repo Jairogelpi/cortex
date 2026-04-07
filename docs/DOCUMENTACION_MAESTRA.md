@@ -20,7 +20,8 @@
 8. [Capas Σ, Ρ, Τ, Ο — Infraestructura](#infraestructura)
 9. [El pipeline completo en un solo diagrama](#pipeline)
 10. [Por qué nada está hardcodeado](#hardcoded)
-11. [Lo que queda por hacer: E1–E5](#siguiente)
+11. [Arquitectura evidence-first en sombra](#evidence-first)
+12. [Lo que queda por hacer: E1–E5](#siguiente)
 
 ---
 
@@ -558,10 +559,12 @@ encontró porque los datos reales las contienen.
 **El rechazo de Mu** emerge del delta. Si mañana el mercado
 produciera δ=0.82, Mu consolidaría automáticamente.
 
+---
+
 ### La prueba: el razonamiento emergente de los modelos
 
 Haiku calculó solo (sin instrucciones sobre el resultado):
-> "La valencia negativa (-0.284) y causalidad débil (-0.730)
+## 12. Lo que queda por hacer: experimentos E1–E5
 > reducen la confianza por debajo del umbral."
 
 Opus detectó solo la bifurcación Lorenz/phase_transition:
@@ -573,6 +576,31 @@ Sonnet identificó solo el problema de Lorenz vs recuperación:
 
 Tres modelos distintos, tres razonamientos emergentes coherentes
 con los datos. Sin instrucciones sobre qué concluir.
+
+---
+
+<a name="evidence-first"></a>
+## 11. Arquitectura evidence-first en sombra
+
+La siguiente evolución de Cortex no reemplaza el pipeline actual de golpe. Primero corre en shadow mode, registra evidencia y compara decisiones.
+
+### Qué cambia
+
+- El LLM deja de ser el centro de la decisión.
+- `DecisionPacket` reúne evidencia, conflicto, cobertura y acción candidata.
+- `MemoryRetriever` reutiliza sesiones reales desde `data/memory/`.
+- `AbstentionPolicy` permite abstenerse cuando la cobertura no alcanza.
+
+### Qué no cambia todavía
+
+- Phi sigue factorando el estado.
+- Kappa sigue siendo determinista.
+- Sigma sigue orquestando subagentes.
+- La acción actual del pipeline sigue siendo la fuente de verdad mientras la ruta nueva vive en sombra.
+
+### Regla de implementación
+
+Primero se mide la nueva ruta en paralelo. Solo después de comparar decisión, abstención y regret se puede sustituir la semántica de la ruta unificada.
 
 ---
 

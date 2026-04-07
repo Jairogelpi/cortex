@@ -23,6 +23,7 @@ from typing import Optional
 from loguru import logger
 
 from cortex.config import config
+from cortex.decision_packet import DecisionPacket
 from cortex.layers.phi import PhiState
 from cortex.layers.kappa import KappaEvaluation
 from cortex.layers.omega import OmegaHypothesis
@@ -90,6 +91,7 @@ class SigmaLayer:
         kappa_eval: KappaEvaluation,
         omega_hyp: OmegaHypothesis,
         lambda_val: LambdaValidation,
+        decision_packet: Optional[DecisionPacket] = None,
     ) -> SigmaOrchestration:
         """
         Genera el plan de orquestacion basado en el estado completo.
@@ -106,6 +108,111 @@ class SigmaLayer:
         delta      = kappa_eval.delta
         signal     = omega_hyp.trading_signal
         l_verdict  = lambda_val.verdict
+
+        packet_trade_action = ""
+        packet_gate = "EXECUTE"
+        if decision_packet is not None:
+            packet_trade_action = (decision_packet.trade_action or "").strip().upper()
+            packet_gate = (decision_packet.final_action or "EXECUTE").strip().upper()
+
+            if packet_gate == "ABSTAIN":
+                active_subagents = ["monitor_regime"]
+                tasks = [SubagentTask(
+                    name="monitor_regime",
+                    task_type="ANALYSIS",
+                    input_data={
+                        "regime": regime,
+                        "delta": delta,
+                        "evidence_coverage": decision_packet.evidence_coverage,
+                        "conflict_score": decision_packet.conflict_score,
+                    },
+                )]
+                orchestration = SigmaOrchestration(
+                    regime=regime,
+                    active_subagents=active_subagents,
+                    tasks=tasks,
+                    decision="HOLD",
+                    reasoning=(
+                        f"DecisionPacket abstuvo: coverage={decision_packet.evidence_coverage:.2f} "
+                        f"conflict={decision_packet.conflict_score:.2f}. Monitor only."
+                    ),
+                    timestamp=datetime.now().isoformat(),
+                    total_duration_seconds=round(time.time() - start, 3)
+                )
+                logger.info(
+                    f"Sigma: decision={orchestration.decision} subagentes={active_subagents} "
+                    f"regimen={regime} delta={delta:.4f} packet=ABSTAIN"
+                )
+                return orchestration
+
+            if packet_trade_action in ("EXECUTE", "HOLD", "DEFENSIVE", "BACKTRACK"):
+                if packet_trade_action == "EXECUTE" and (signal == "CASH" or regime == "INDETERMINATE" or delta < config.DELTA_BACKTRACK):
+                    packet_trade_action = "HOLD"
+                    packet_gate = "EXECUTE"
+
+                if packet_trade_action == "EXECUTE":
+                    active_subagents, tasks = self._plan_subagents(
+                        regime, delta, signal, l_verdict, omega_hyp, lambda_val
+                    )
+                elif packet_trade_action == "BACKTRACK":
+                    active_subagents = ["backtrack_manager"]
+                    tasks = [SubagentTask(
+                        name="backtrack_manager",
+                        task_type="VALIDATION",
+                        input_data={
+                            "reason": "decision_packet_backtrack",
+                            "conflict_score": decision_packet.conflict_score,
+                            "novelty_score": decision_packet.novelty_score,
+                        },
+                    )]
+                elif packet_trade_action == "DEFENSIVE":
+                    active_subagents = ["defensive_allocator", "risk_calculator"]
+                    tasks = [
+                        SubagentTask(
+                            name="defensive_allocator",
+                            task_type="ANALYSIS",
+                            input_data={
+                                "instruments": omega_hyp.instruments or ["IEF"],
+                                "evidence_coverage": decision_packet.evidence_coverage,
+                            },
+                        ),
+                        SubagentTask(
+                            name="risk_calculator",
+                            task_type="ANALYSIS",
+                            input_data={"stop_loss_pct": config.STOP_LOSS_PCT},
+                        ),
+                    ]
+                else:
+                    active_subagents = ["monitor_regime"]
+                    tasks = [SubagentTask(
+                        name="monitor_regime",
+                        task_type="ANALYSIS",
+                        input_data={
+                            "regime": regime,
+                            "delta": delta,
+                            "packet_trade_action": packet_trade_action,
+                        },
+                    )]
+
+                orchestration = SigmaOrchestration(
+                    regime=regime,
+                    active_subagents=active_subagents,
+                    tasks=tasks,
+                    decision=packet_trade_action,
+                    reasoning=(
+                        f"DecisionPacket authority: trade_action={packet_trade_action} "
+                        f"coverage={decision_packet.evidence_coverage:.2f} "
+                        f"conflict={decision_packet.conflict_score:.2f} "
+                        f"novelty={decision_packet.novelty_score:.2f}"
+                    ),
+                    timestamp=datetime.now().isoformat(),
+                    total_duration_seconds=round(time.time() - start, 3)
+                )
+                logger.info(
+                    f"Sigma: decision={packet_trade_action} subagentes={active_subagents} "
+                    f"regimen={regime} delta={delta:.4f} packet=AUTH"
+                )
+                return orchestration
 
         # Seleccionar subagentes relevantes segun regimen
         active_subagents, tasks = self._plan_subagents(

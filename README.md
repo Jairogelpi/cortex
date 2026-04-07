@@ -29,6 +29,24 @@ Arquitectura agentiva de 10 capas para paper trading fiable.
 
 ---
 
+## Evolucion Evidence-First
+
+La arquitectura actual ya no se evalua solo por tokens o por narrativa. En paralelo al pipeline estable, Cortex mantiene una ruta sombra evidence-first donde:
+
+- El LLM detecta novedad y conflicto, no decide.
+- `DecisionPacket` transporta evidencia, conflicto, cobertura y accion candidata.
+- `Sigma` sigue protegido por pisos de seguridad, pero ya consume el packet como autoridad cuando corresponde.
+- `Omicron` registra cobertura de evidencia, ruta sombra y divergencia entre la propuesta nueva y la decision activa.
+
+Estado actual:
+
+- Scaffold evidence-first implementado.
+- Ruta shadow activa.
+- Integracion completa validada: 53/53 checks.
+- `shadow_regret` y `shadow_agreement` ya se registran en Omicron para comparar la politica nueva con la ruta legacy sin sesgos.
+
+---
+
 ## Pre-registro OSF
 
 **https://osf.io/wdkcx** — sellado el 5 de abril de 2026
@@ -54,6 +72,8 @@ Acción: HOLD — 100% cash
 ```
 INPUT → Φ → Κ → Ω → Λ → Μ → Σ → Ρ → Τ → Ο → ACTION
 ```
+
+La ruta evidence-first corre en sombra sobre este flujo y no sustituye la decision activa hasta que su `regret` y su cobertura superen a la ruta legacy de forma reproducible.
 
 ---
 
