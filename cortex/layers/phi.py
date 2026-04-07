@@ -19,6 +19,7 @@ from openai import OpenAI
 from loguru import logger
 
 from cortex.config import config
+from cortex.token_tracker import token_tracker  # H1: medicion real de tokens
 
 
 @dataclass
@@ -44,10 +45,6 @@ class PhiState:
         ])
 
     def check_orthogonality(self, threshold: float = 0.15) -> dict:
-        """
-        Verifica condicion del paper: I(Zi, Zj) < 0.3.
-        Proxy: |Zi - Zj| >= threshold para todo i != j.
-        """
         z = self.to_vector()
         pairs_too_similar = []
         for i in range(len(z)):
@@ -81,16 +78,6 @@ class PhiState:
 
 
 class PhiLayer:
-    """
-    Capa Phi: factorizador de estado del mercado.
-    Pipeline: determinista -> LLM -> separacion forzada -> PhiState.
-
-    Args:
-        temperature: temperatura del LLM.
-            0.1 (defecto) para Phi principal — razonamiento semantico rico.
-            0.0 para Lambda interna — reproducibilidad determinista.
-    """
-
     MIN_SEPARATION = 0.18
 
     def __init__(self, temperature: float = 0.1):
@@ -98,12 +85,11 @@ class PhiLayer:
             api_key=config.OPENROUTER_API_KEY,
             base_url=config.OPENROUTER_BASE_URL
         )
-        self.model = config.MODEL_PHI
+        self.model       = config.MODEL_PHI
         self.temperature = temperature
         logger.info(f"Capa Phi inicializada: {self.model} (temperature={temperature})")
 
     def factorize(self, indicators: dict) -> PhiState:
-        """Pipeline completo: determinista -> LLM -> separacion forzada."""
         base      = self._factorize_deterministic(indicators)
         refined   = self._refine_with_llm(indicators, base)
         separated = self._enforce_separation(refined)
@@ -115,10 +101,6 @@ class PhiLayer:
         return state
 
     def _factorize_deterministic(self, ind: dict) -> dict:
-        """
-        8 dimensiones con variables fuente distintas para ortogonalidad.
-        Cada Zi se construye sobre un aspecto diferente del mercado.
-        """
         vix      = ind.get("vix", 20.0)
         momentum = ind.get("momentum_21d_pct", 0.0)
         vol      = ind.get("vol_realized_pct", 15.0)
@@ -128,60 +110,40 @@ class PhiLayer:
         z1 = float(np.clip(momentum / 8.0, -1, 1))
         z2 = float(np.clip((vix - 20.0) / 22.0, -1, 1))
         z3 = float(np.clip((vol - 12.0) / 18.0, -1, 1))
-
         sign_mom = np.sign(momentum) if abs(momentum) > 0.5 else 0
         z4 = float(np.clip(sign_mom * (vol / 25.0), -1, 1))
-
         z5 = float(np.clip(drawdown / -35.0, -1, 1))
 
-        if vix > 35:
-            z6 = 0.85
-        elif vix > 28:
-            z6 = 0.45
-        elif vix > 22:
-            z6 = 0.10
-        elif vix < 14:
-            z6 = -0.65
-        else:
-            z6 = -0.20
+        if vix > 35:    z6 = 0.85
+        elif vix > 28:  z6 = 0.45
+        elif vix > 22:  z6 = 0.10
+        elif vix < 14:  z6 = -0.65
+        else:           z6 = -0.20
 
         z7 = float(np.clip(
-            0.45 * (momentum / 8.0) +
-            0.30 * (drawdown / -35.0) +
-            0.25 * (-(vix - 20.0) / 22.0),
+            0.45*(momentum/8.0) + 0.30*(drawdown/-35.0) + 0.25*(-(vix-20.0)/22.0),
             -1, 1
         ))
-
         z8_map = {
-            "R1_EXPANSION":    -0.70,
-            "R2_ACCUMULATION": -0.25,
-            "R4_CONTRACTION":  +0.40,
-            "R3_TRANSITION":   +0.72,
-            "INDETERMINATE":   +0.92,
+            "R1_EXPANSION": -0.70, "R2_ACCUMULATION": -0.25,
+            "R4_CONTRACTION": +0.40, "R3_TRANSITION": +0.72, "INDETERMINATE": +0.92,
         }
         z8 = z8_map.get(regime, 0.92)
-
         confidence_map = {
             "R1_EXPANSION": 0.85, "R2_ACCUMULATION": 0.75,
-            "R3_TRANSITION": 0.70, "R4_CONTRACTION": 0.75,
-            "INDETERMINATE": 0.45
+            "R3_TRANSITION": 0.70, "R4_CONTRACTION": 0.75, "INDETERMINATE": 0.45
         }
-
         return {
-            "Z1": round(z1, 3), "Z2": round(z2, 3), "Z3": round(z3, 3),
-            "Z4": round(z4, 3), "Z5": round(z5, 3), "Z6": round(z6, 3),
-            "Z7": round(z7, 3), "Z8": round(z8, 3),
+            "Z1": round(z1,3), "Z2": round(z2,3), "Z3": round(z3,3),
+            "Z4": round(z4,3), "Z5": round(z5,3), "Z6": round(z6,3),
+            "Z7": round(z7,3), "Z8": round(z8,3),
             "confidence": confidence_map.get(regime, 0.45)
         }
 
     def _refine_with_llm(self, indicators: dict, base: dict) -> dict:
-        """
-        Claude Sonnet refina la factorizacion con razonamiento semantico.
-        Usa self.temperature: 0.1 para Phi principal, 0.0 para Lambda interna.
-        """
         if self.temperature == 0.0:
             logger.debug("Phi LLM omitido: temperature=0.0 usa salida determinista base")
-            return {k: base[k] for k in ["Z1", "Z2", "Z3", "Z4", "Z5", "Z6", "Z7", "Z8"]}
+            return {k: base[k] for k in ["Z1","Z2","Z3","Z4","Z5","Z6","Z7","Z8"]}
 
         prompt = f"""Eres la capa Phi de Cortex V2. Refina esta factorizacion de mercado.
 
@@ -203,51 +165,44 @@ Devuelve SOLO JSON sin texto adicional:
                 max_tokens=300,
                 temperature=self.temperature
             )
+            # H1: registrar tokens reales de Phi
+            token_tracker.add("phi", resp.usage.prompt_tokens, resp.usage.completion_tokens)
+
             raw  = resp.choices[0].message.content.strip()
-            raw  = raw.replace("```json", "").replace("```", "").strip()
+            raw  = raw.replace("```json","").replace("```","").strip()
             data = json.loads(raw)
-            logger.info(f"Phi LLM: {data.get('reasoning', '')}")
+            logger.info(f"Phi LLM: {data.get('reasoning','')}")
             return {k: float(data.get(k, base[k])) for k in ["Z1","Z2","Z3","Z4","Z5","Z6","Z7","Z8"]}
         except Exception as e:
             logger.warning(f"Phi LLM fallback (temperature={self.temperature}): {e}")
             return {k: base[k] for k in ["Z1","Z2","Z3","Z4","Z5","Z6","Z7","Z8"]}
 
     def _enforce_separation(self, z_dict: dict) -> dict:
-        """
-        Garantiza separacion minima entre todas las dimensiones.
-        Si dos Zi son demasiado similares, empuja el segundo hacia fuera.
-        """
         keys = ["Z1","Z2","Z3","Z4","Z5","Z6","Z7","Z8"]
         z    = np.array([z_dict[k] for k in keys])
-
         for _ in range(20):
             changed = False
             for i in range(len(z)):
-                for j in range(i + 1, len(z)):
+                for j in range(i+1, len(z)):
                     diff = z[j] - z[i]
                     if abs(diff) < self.MIN_SEPARATION:
                         push = (self.MIN_SEPARATION - abs(diff)) / 2.0 + 0.01
-                        if diff >= 0:
-                            z[i] -= push
-                            z[j] += push
-                        else:
-                            z[i] += push
-                            z[j] -= push
+                        if diff >= 0: z[i] -= push; z[j] += push
+                        else:         z[i] += push; z[j] -= push
                         z[i] = float(np.clip(z[i], -1.0, 1.0))
                         z[j] = float(np.clip(z[j], -1.0, 1.0))
                         changed = True
             if not changed:
                 break
-
-        return {keys[i]: round(float(z[i]), 3) for i in range(len(keys))}
+        return {keys[i]: round(float(z[i]),3) for i in range(len(keys))}
 
     def _build_state(self, z: dict, indicators: dict, confidence: float) -> PhiState:
         return PhiState(
-            Z1_estructura=z["Z1"],  Z2_dinamica=z["Z2"],
-            Z3_escala=z["Z3"],      Z4_causalidad=z["Z4"],
-            Z5_temporalidad=z["Z5"],Z6_reversibilidad=z["Z6"],
-            Z7_valencia=z["Z7"],    Z8_complejidad=z["Z8"],
-            regime=indicators.get("regime", "INDETERMINATE"),
+            Z1_estructura=z["Z1"],   Z2_dinamica=z["Z2"],
+            Z3_escala=z["Z3"],       Z4_causalidad=z["Z4"],
+            Z5_temporalidad=z["Z5"], Z6_reversibilidad=z["Z6"],
+            Z7_valencia=z["Z7"],     Z8_complejidad=z["Z8"],
+            regime=indicators.get("regime","INDETERMINATE"),
             confidence=confidence,
             raw_indicators=indicators
         )
@@ -255,33 +210,12 @@ Devuelve SOLO JSON sin texto adicional:
 
 def test_phi():
     from cortex.market_data import MarketData
-
-    print("\n" + "="*50)
-    print("  CORTEX V2 - Test Capa Phi")
-    print("="*50 + "\n")
-
     md         = MarketData()
     indicators = md.get_regime_indicators()
-
-    print("Indicadores:")
-    for k, v in indicators.items():
-        print(f"  {k}: {v}")
-
-    print("\nFactorizando (temperature=0.1)...")
-    phi   = PhiLayer()
-    state = phi.factorize(indicators)
-    print("\n" + state.summary())
-
-    orth = state.check_orthogonality()
-    print(f"\nOrtogonalidad: {'OK' if orth['orthogonality_ok'] else 'REVISAR'}")
-    if orth["pairs_too_similar"]:
-        print(f"  Pares similares: {orth['pairs_too_similar']}")
-
-    print("\n" + "="*50)
-    print("  Siguiente: capa Kappa")
-    print("="*50 + "\n")
+    phi        = PhiLayer()
+    state      = phi.factorize(indicators)
+    print(state.summary())
     return state
-
 
 if __name__ == "__main__":
     test_phi()
